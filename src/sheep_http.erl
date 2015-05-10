@@ -49,8 +49,17 @@ upgrade(Req, Env, Handler, HandlerOpts) ->
         bindings = Bindings,
         query = Query
     },
+
+    IsInit = erlang:function_exported(Handler, sheep_init, 2),
+
     Response = try
+        {Opts, State} = case IsInit of
+            true ->
+                Handler:sheep_init(Request, HandlerOpts);
+            false -> {[], []}
+        end,
         handle(
+            Opts, State,
             Request#sheep_request{
                 body = body_params(Req, ContentType)},
             Handler, HandlerOpts)
@@ -81,21 +90,21 @@ logging_request(Req, StatusCode) ->
             element(1, cowboy_req:header(<<"user-agent">>, Req, <<"-">>))
         ]).
 
--spec handle(#sheep_request{}, module(), any()) -> #sheep_response{}.
-handle(Request, Handler, _HandlerOpts) ->
-    Method = lists:keyfind(
-        Request#sheep_request.method, 1, ?PROTOCOL_METHODS_SPEC),
+-spec handle(list(), any(), #sheep_request{}, module(), any()) -> #sheep_response{}.
+handle(Opts, State, Request, Handler, _HandlerOpts) ->
+    MethodsSpec = proplists:get_value(methods_spec, Opts, ?PROTOCOL_METHODS_SPEC),
+    Method = lists:keyfind(Request#sheep_request.method, 1, MethodsSpec),
     Response = case Method of
         false ->
             throw({sheep, 405, <<"Method not allowed">>});
         {_, HandlerFun} ->
-            F1 = erlang:function_exported(Handler, HandlerFun, 1),
             F2 = erlang:function_exported(Handler, HandlerFun, 2),
-            case {Request#sheep_request.bindings, F1, F2} of
+            F3 = erlang:function_exported(Handler, HandlerFun, 3),
+            case {Request#sheep_request.bindings, F2, F3} of
                 {[], true, _} -> 
-                    Handler:HandlerFun(Request);
+                    Handler:HandlerFun(State, Request);
                 {Bindings, _, true} -> 
-                    Handler:HandlerFun(Request, Bindings);
+                    Handler:HandlerFun(State, Request, Bindings);
                 {_, false, false}->
                     throw({sheep, 405, <<"Method not allowed">>});
                 _ ->
