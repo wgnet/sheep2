@@ -69,21 +69,34 @@ read_users_collection_test(Config) ->
 
 read_users_item_test(Config) ->
     Client = ?config(client, Config),
-    {ok, Response1} = cowboy_client:request(
+    {ok, Request1} = cowboy_client:request(
         <<"GET">>,
         build_url(<<"/users/1">>, Config),
         [{<<"accept">>, <<"application/json">>}],
         Client),
-    {ok, 200, _, _} = cowboy_client:response(Response1),
+    {ok, 200, _, _} = cowboy_client:response(Request1),
 
-    {ok, Response2} = cowboy_client:request(
+    {ok, Request2} = cowboy_client:request(
         <<"DELETE">>,
         build_url(<<"/users/1">>, Config), [],
         Client),
-    {ok, 405, _, _} = cowboy_client:response(Response2),
+    {ok, 405, _, _} = cowboy_client:response(Request2),
 
-    {ok, Response3} = cowboy_client:request(
+    {ok, Request3} = cowboy_client:request(
         <<"GET">>,
         build_url(<<"/users/throw_id">>, Config), [],
         Client),
-    {ok, 400, _, _} = cowboy_client:response(Response3).
+    {ok, 400, _, _} = cowboy_client:response(Request3),
+
+    {ok, Request4} = cowboy_client:request(
+        <<"GET">>,
+        build_url(<<"/users/error_id">>, Config), [],
+        Client),
+    {ok, 400, _, _} = cowboy_client:response(Request4),
+
+    {ok, Request5} = cowboy_client:request(
+        <<"GET">>,
+        build_url(<<"/users/custom_error_id">>, Config), [],
+        Client),
+    {ok, 400, _, Response5} = cowboy_client:response(Request5),
+    {ok, <<"{\"error\":\"Message\"}">>, _} = cowboy_client:response_body(Response5).

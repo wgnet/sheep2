@@ -28,8 +28,8 @@
 -export([
     get_header/2,
     get_header/3,
-    error_handler/1,
-    error_handler/2
+    error_handler/2,
+    error_handler/3
 ]).
 
 -include("sheep.hrl").
@@ -64,10 +64,11 @@ upgrade(Req, Env, Handler, HandlerOpts) ->
                 body = body_params(Req, ContentType)},
             Handler, HandlerOpts)
     catch
-        throw:{sheep, StatusCode, Message} ->
-            handle_error(Request, [StatusCode, Message], Handler);
+        throw:{sheep, #sheep_response{status_code=StatusCode}=ErrorResponse} ->
+            handle_error(
+                Request, [Request, StatusCode, ErrorResponse], Handler);
         Class:Reason ->
-            handle_error(Request, [{Class, Reason}], Handler)
+            handle_error(Request, [Request, {Class, Reason}], Handler)
     end,
     {ok, CowResponse} = cowboy_req:reply(
         Response#sheep_response.status_code,
@@ -94,9 +95,11 @@ logging_request(Req, StatusCode) ->
 handle(Opts, State, Request, Handler, _HandlerOpts) ->
     MethodsSpec = proplists:get_value(methods_spec, Opts, ?PROTOCOL_METHODS_SPEC),
     Method = lists:keyfind(Request#sheep_request.method, 1, MethodsSpec),
-    Response = case Method of
+    Result = case Method of
         false ->
-            throw({sheep, 405, <<"Method not allowed">>});
+            throw({sheep, #sheep_response{
+                                status_code=405,
+                                body= <<"Method not allowed">>}});
         {_, HandlerFun} ->
             F2 = erlang:function_exported(Handler, HandlerFun, 2),
             F3 = erlang:function_exported(Handler, HandlerFun, 3),
@@ -106,14 +109,36 @@ handle(Opts, State, Request, Handler, _HandlerOpts) ->
                 {Bindings, _, true} -> 
                     Handler:HandlerFun(State, Request, Bindings);
                 {_, false, false}->
-                    throw({sheep, 405, <<"Method not allowed">>});
+                    throw({sheep, #sheep_response{
+                                        status_code=405,
+                                        body= <<"Method not allowed">>}});
                 _ ->
-                    throw({sheep, 501, <<"Not implemented">>})
+                    throw({sheep, #sheep_response{
+                                        status_code=501,
+                                        body= <<"Not implemented">>}})
             end
     end,
-    generate_payload(
-        Response,
-        get_header(<<"accept">>, Request, ?CT_JSON)).
+    case Result of
+        {ok, OkResponse} ->
+            generate_payload(
+                OkResponse,
+                get_header(<<"accept">>, Request, ?CT_JSON));
+        {error, ErrorResponse} ->
+            case ErrorResponse of
+                #sheep_response{
+                    status_code=StatusCode}
+                when is_integer(StatusCode) ->
+                    handle_error(
+                        Request,
+                        [Request, StatusCode, ErrorResponse],
+                        Handler);
+                _ ->
+                    handle_error(
+                        Request,
+                        [Request, {error, ErrorResponse}],
+                        Handler)
+            end
+    end.
 
 
 handle_error(Request, Args, Handler) ->
@@ -137,14 +162,13 @@ call_error_handler(Request, Handler, Args)->
         apply(Handler, error_handler, Args),
         get_header(<<"accept">>, Request, ?CT_JSON)).
 
--spec error_handler(integer(), binary()) -> #sheep_response{}.
-error_handler(StatusCode, Message) ->
-    #sheep_response{
-        status_code=StatusCode,
-        body=Message
-    }.
+-spec error_handler(#sheep_request{}, integer(), #sheep_response{})
+    -> #sheep_response{}.
+error_handler(_Request, _StatusCode, Response) ->
+    Response.
 
-error_handler(_Exception) ->
+-spec error_handler(#sheep_request{}, {atom(), any()}) -> #sheep_response{}.
+error_handler(_Request, _Exception) ->
     error_logger:error_report(erlang:get_stacktrace()),
     #sheep_response{
         status_code = 500,
