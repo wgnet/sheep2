@@ -80,5 +80,10 @@ read_users_item_test(Config) ->
         <<"DELETE">>,
         build_url(<<"/users/1">>, Config), [],
         Client),
+    {ok, 405, _, _} = cowboy_client:response(Response2),
 
-    {ok, 405, _, _} = cowboy_client:response(Response2).
+    {ok, Response3} = cowboy_client:request(
+        <<"GET">>,
+        build_url(<<"/users/throw_id">>, Config), [],
+        Client),
+    {ok, 400, _, _} = cowboy_client:response(Response3).

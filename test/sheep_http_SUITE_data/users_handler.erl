@@ -3,6 +3,8 @@
 -export([init/3]).
 
 -export([
+    sheep_init/2,
+    error_handler/1,
     read/2,
     read/3
 ]).
@@ -24,6 +26,12 @@ sheep_init(Request, Opts) ->
     ],
     []}.
 
+error_handler({throw, test_exception}) ->
+    Data = {[
+        {<<"key">>, <<"value">>}
+    ]},
+    #sheep_response{status_code=400, body=Data}.
+
 % Get collections
 read(State, _Request)->
     Data = {[
@@ -32,8 +40,13 @@ read(State, _Request)->
     #sheep_response{status_code=200, body=Data}.
 
 % Get item
+read(State, _Request, [{user_id, <<"throw_id">>}])->
+    throw(test_exception),
+    ok;
+    
+
 read(State, _Request, Bindings)->
     Data = {[
-        {<<"key">>, <<"value">>}
+        {<<"key">>, <<"value">>}|Bindings
     ]},
     #sheep_response{status_code=200, body=Data}.
