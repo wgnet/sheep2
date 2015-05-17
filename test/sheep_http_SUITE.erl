@@ -9,20 +9,35 @@
 ]).
 
 -export([
-    read_users_collection_test/1,
-    read_users_item_test/1
+    basic_users_handler_test/1,
+    basic_user_handler_with_error_handler_test/1,
+    users_handler_with_transitions_test/1
 ]).
 
 all() ->
     [
-        read_users_collection_test,
-        read_users_item_test
+        basic_users_handler_test,
+        basic_user_handler_with_error_handler_test,
+        users_handler_with_transitions_test
     ].
 
 init_dispatch() ->
     cowboy_router:compile([
         {"localhost", [
-            {"/users[/:user_id]", users_handler, []},
+            {
+                "/basic/users[/:user_id]",
+                basic_users_handler, []},
+            {
+                "/basic_with_error_handler/users[/:user_id]",
+                basic_users_handler_with_error_handler, []
+            },
+            {
+                "/transitions/users[/:user_id]",
+                users_handler_with_transitions, []
+            },
+            {
+                "/full/users[/:user_id]",
+                full_users_handler, []},
             {"/customers[/:customer_id]/orders[/:order_id]", orders_handler, []}
         ]}
     ]).
@@ -56,47 +71,65 @@ build_url(Path, Config) ->
     <<"http://localhost:", PortBin/binary, Path/binary >>.
 
 
-read_users_collection_test(Config) ->
-
-    Client = ?config(client, Config),
-    {ok, Client2} = cowboy_client:request(
-        <<"GET">>,
-        build_url(<<"/users">>, Config),
-        [{<<"accept">>, <<"application/json">>}],
-        Client),
-    {ok, 200, _, _} = cowboy_client:response(Client2).
-
-
-read_users_item_test(Config) ->
+basic_users_handler_test(Config) ->
     Client = ?config(client, Config),
     {ok, Request1} = cowboy_client:request(
         <<"GET">>,
-        build_url(<<"/users/1">>, Config),
+        build_url(<<"/basic/users">>, Config),
         [{<<"accept">>, <<"application/json">>}],
         Client),
     {ok, 200, _, _} = cowboy_client:response(Request1),
 
     {ok, Request2} = cowboy_client:request(
-        <<"DELETE">>,
-        build_url(<<"/users/1">>, Config), [],
+        <<"GET">>,
+        build_url(<<"/basic/users/1">>, Config),
+        [{<<"accept">>, <<"application/json">>}],
         Client),
-    {ok, 405, _, _} = cowboy_client:response(Request2),
+    {ok, 404, _, _} = cowboy_client:response(Request2).
+
+
+basic_user_handler_with_error_handler_test(Config) ->
+    Client = ?config(client, Config),
+    {ok, Request1} = cowboy_client:request(
+        <<"GET">>,
+        build_url(<<"/basic_with_error_handler/users">>, Config),
+        [{<<"accept">>, <<"application/json">>}],
+        Client),
+    {ok, 200, _, _} = cowboy_client:response(Request1),
+
+    {ok, Request2} = cowboy_client:request(
+        <<"GET">>,
+        build_url(<<"/basic_with_error_handler/users/1">>, Config),
+        [{<<"accept">>, <<"application/json">>}],
+        Client),
+    {ok, 404, _, _} = cowboy_client:response(Request2),
 
     {ok, Request3} = cowboy_client:request(
         <<"GET">>,
-        build_url(<<"/users/throw_id">>, Config), [],
+        build_url(<<"/basic_with_error_handler/users/error_id">>, Config),
+        [{<<"accept">>, <<"application/json">>}],
         Client),
     {ok, 400, _, _} = cowboy_client:response(Request3),
 
     {ok, Request4} = cowboy_client:request(
         <<"GET">>,
-        build_url(<<"/users/error_id">>, Config), [],
+        build_url(<<"/basic_with_error_handler/users/custom_error_id">>, Config),
+        [{<<"accept">>, <<"application/json">>}],
         Client),
     {ok, 400, _, _} = cowboy_client:response(Request4),
 
     {ok, Request5} = cowboy_client:request(
         <<"GET">>,
-        build_url(<<"/users/custom_error_id">>, Config), [],
+        build_url(<<"/basic_with_error_handler/users/throw_id">>, Config),
+        [{<<"accept">>, <<"application/json">>}],
         Client),
-    {ok, 400, _, Response5} = cowboy_client:response(Request5),
-    {ok, <<"{\"error\":\"Message\"}">>, _} = cowboy_client:response_body(Response5).
+    {ok, 400, _, _} = cowboy_client:response(Request5).
+
+users_handler_with_transitions_test(Config) ->
+    Client = ?config(client, Config),
+    {ok, Request1} = cowboy_client:request(
+        <<"GET">>,
+        build_url(<<"/transitions/users">>, Config),
+        [{<<"accept">>, <<"application/json">>}],
+        Client),
+    {ok, 200, _, _} = cowboy_client:response(Request1).

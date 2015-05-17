@@ -11,10 +11,10 @@
 % CRUD operations
 
 -define(PROTOCOL_METHODS_SPEC, [
-    {<<"POST">>, create},
-    {<<"GET">>, read},
-    {<<"PUT">>, update},
-    {<<"DELETE">>, delete}
+    {<<"POST">>, [create]},
+    {<<"GET">>, [read]},
+    {<<"PUT">>, [update]},
+    {<<"DELETE">>, [delete]}
 ]).
 
 -record(sheep_request, {

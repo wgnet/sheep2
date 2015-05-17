@@ -53,13 +53,13 @@ upgrade(Req, Env, Handler, HandlerOpts) ->
     IsInit = erlang:function_exported(Handler, sheep_init, 2),
 
     Response = try
-        {Opts, State} = case IsInit of
+        {SheepOpts, State} = case IsInit of
             true ->
                 Handler:sheep_init(Request, HandlerOpts);
             false -> {[], []}
         end,
         handle(
-            Opts, State,
+            SheepOpts, State,
             Request#sheep_request{
                 body = body_params(Req, ContentType)},
             Handler, HandlerOpts)
@@ -96,32 +96,52 @@ logging_request(Req, StatusCode) ->
             element(1, cowboy_req:header(<<"user-agent">>, Req, <<"-">>))
         ]).
 
+response_204() ->
+    sheep_response(204, <<"">>).
+
+response_405() ->
+    sheep_response(405, <<"Method not allowed">>).
+
+response_500() ->
+    sheep_response(500, <<"Not implemented">>).
+
+response_501() ->
+    sheep_response(501, <<"Internal server error">>).
+
+
+sheep_response(StatusCode, Message) ->
+    #sheep_response{status_code=StatusCode, body=Message}.
+
+call_handlers(_State, _Request, _Module, []) ->
+    throw({sheep, response_204()});
+
+call_handlers(State, Request, Module, [HandlerFun|Handlers]) ->
+    Fun = erlang:function_exported(Module, HandlerFun, 2),
+    Result = case Fun of
+        true -> 
+            Module:HandlerFun(State, Request);
+        _ ->
+            throw({sheep, response_501()})
+    end,
+    case Result of
+        {noreply, NewState} ->
+            call_handlers(NewState, Request, Module, Handlers);
+        _ ->
+            Result
+    end.
+
 -spec handle(list(), any(), #sheep_request{}, module(), any()) -> #sheep_response{}.
-handle(Opts, State, Request, Handler, _HandlerOpts) ->
+handle(Opts, State, Request, HandlerModule, _HandlerOpts) ->
     MethodsSpec = proplists:get_value(methods_spec, Opts, ?PROTOCOL_METHODS_SPEC),
-    Method = lists:keyfind(Request#sheep_request.method, 1, MethodsSpec),
-    Result = case Method of
+    FindHandlers = lists:keyfind(Request#sheep_request.method, 1, MethodsSpec),
+
+    Result = case FindHandlers of
         false ->
-            throw({sheep, #sheep_response{
-                                status_code=405,
-                                body= <<"Method not allowed">>}});
-        {_, HandlerFun} ->
-            F2 = erlang:function_exported(Handler, HandlerFun, 2),
-            F3 = erlang:function_exported(Handler, HandlerFun, 3),
-            case {Request#sheep_request.bindings, F2, F3} of
-                {[], true, _} -> 
-                    Handler:HandlerFun(State, Request);
-                {Bindings, _, true} -> 
-                    Handler:HandlerFun(State, Request, Bindings);
-                {_, false, false}->
-                    throw({sheep, #sheep_response{
-                                        status_code=405,
-                                        body= <<"Method not allowed">>}});
-                _ ->
-                    throw({sheep, #sheep_response{
-                                        status_code=501,
-                                        body= <<"Not implemented">>}})
-            end
+            throw({sheep, response_405()});
+        [] ->
+            throw({sheep, response_405()});
+        {_, Handlers} when is_list(Handlers) ->
+            call_handlers(State, Request, HandlerModule, Handlers)
     end,
     case Result of
         {ok, OkResponse} ->
@@ -136,12 +156,12 @@ handle(Opts, State, Request, Handler, _HandlerOpts) ->
                     handle_error(
                         Request,
                         [Request, StatusCode, ErrorResponse],
-                        Handler);
+                        HandlerModule);
                 _ ->
                     handle_error(
                         Request,
                         [Request, {error, ErrorResponse}],
-                        Handler)
+                        HandlerModule)
             end
     end.
 
@@ -175,10 +195,7 @@ error_handler(_Request, _StatusCode, Response) ->
 -spec error_handler(#sheep_request{}, {atom(), any()}) -> #sheep_response{}.
 error_handler(_Request, _Exception) ->
     error_logger:error_report(erlang:get_stacktrace()),
-    #sheep_response{
-        status_code = 500,
-        body = <<"Internal server error">>
-    }.
+    response_500().
 
 
 -spec body_params(cowboy_req:req(), binary()) -> {json_obj(), cowboy_req:req()}.
@@ -197,17 +214,23 @@ parse_payload(Payload, ContentType) ->
             try
                 jiffy:decode(Payload)
             catch
-                _:_ -> throw({sheep, 400, <<"Can't decode JSON payload">>})
+                _:_ -> throw({
+                    sheep,
+                    sheep_response(400, <<"Can't decode JSON payload">>)})
             end;
         ?CT_MSG_PACK ->
             try
                 {ok, ParamsMsgPack} = msgpack:unpack(Payload, [{format, jiffy}]),
                 ParamsMsgPack
             catch
-                _:_ -> throw({sheep, 400, <<"Can't decode MsgPack payload">>})
+                _:_ -> throw({
+                    sheep,
+                    sheep_response(400, <<"Can't decode MsgPack payload">>)})
             end;
         _ ->
-            throw({sheep, 400, <<"Not supported 'content-type'">>})
+            throw({
+                sheep,
+                sheep_response(400, <<"Not supported 'content-type'">>)})
     end.
 
 -spec generate_payload(json_obj(), mime_type()) -> iolist().
@@ -218,13 +241,17 @@ generate_payload(Response, ContentType) ->
             try
                 msgpack:pack(Data, [{format, jiffy}])
             catch
-                _:_ -> throw({sheep, 500, <<"Can't encode MsgPack payload">>})
+                _:_ -> throw({
+                    sheep,
+                    sheep_response(500, <<"Can't encode MsgPack payload">>)})
             end;
         _AnyOtherContentType -> 
             try
                 jiffy:encode(Data)
             catch
-                _:_ -> throw({sheep, 500, <<"Can't encode JSON payload">>})
+                _:_ -> throw({
+                    sheep,
+                    sheep_response(500, <<"Can't encode JSON payload">>)})
             end
     end,
     % TODO: extend headers instead replace

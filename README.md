@@ -43,10 +43,10 @@ Specifications for methods. Default value is:
 
 ```erlang
 [
-    {<<"POST">>, create},
-    {<<"GET">>, read},
-    {<<"PUT">>, update},
-    {<<"DELETE">>, delete}
+    {<<"POST">>, [create]},
+    {<<"GET">>, [read]},
+    {<<"PUT">>, [update]},
+    {<<"DELETE">>, [delete]}
 ]
 ```
 
