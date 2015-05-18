@@ -25,12 +25,12 @@ sheep_init(Request, Opts) ->
     []}.
 
 % Get item
-read(_State, #sheep_request{bindings=[{user_id, _}]} = Request)->
+read(#sheep_request{bindings=[{user_id, _}]} = Request, _State)->
     Data = {Request#sheep_request.bindings},
     {ok, #sheep_response{status_code=200, body=Data}};
 
 % Get collection
-read(State, _Request)->
+read(_Request, State)->
     Data = {[
         {<<"key">>, <<"value">>}
     ]},

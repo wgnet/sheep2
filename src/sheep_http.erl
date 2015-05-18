@@ -39,16 +39,15 @@ upgrade(Req, Env, Handler, HandlerOpts) ->
             false -> {[], []}
         end,
         handle(
-            SheepOpts, State,
             Request#sheep_request{
                 body = body_params(Req, ContentType)},
-            Handler, HandlerOpts)
+            Handler, HandlerOpts, SheepOpts, State)
     catch
         throw:{sheep, #sheep_response{status_code=StatusCode}=ErrorResponse} ->
             handle_error(
-                Request, [Request, StatusCode, ErrorResponse], Handler);
+                Request, Handler, [Request, StatusCode, ErrorResponse]);
         Class:Reason ->
-            handle_error(Request, [Request, {Class, Reason}], Handler)
+            handle_error(Request, Handler, [Request, {Class, Reason}])
     end,
     {ok, CowResponse} = cowboy_req:reply(
         Response#sheep_response.status_code,
@@ -92,27 +91,27 @@ response_501() ->
 sheep_response(StatusCode, Message) ->
     #sheep_response{status_code=StatusCode, body=Message}.
 
-call_handlers(_State, _Request, _Module, []) ->
+call_handlers(_Request, _Module, [], _State) ->
     throw({sheep, response_204()});
 
-call_handlers(State, Request, Module, [HandlerFun|Handlers]) ->
+call_handlers(Request, Module, [HandlerFun|Handlers], State) ->
     Fun = erlang:function_exported(Module, HandlerFun, 2),
     Result = case Fun of
         true -> 
-            Module:HandlerFun(State, Request);
+            Module:HandlerFun(Request, State);
         _ ->
             throw({sheep, response_501()})
     end,
     case Result of
         {noreply, NewState} ->
-            call_handlers(NewState, Request, Module, Handlers);
+            call_handlers(Request, Module, Handlers, NewState);
         _ ->
             Result
     end.
 
--spec handle(list(), any(), #sheep_request{}, module(), any()) -> #sheep_response{}.
-handle(Opts, State, Request, HandlerModule, _HandlerOpts) ->
-    MethodsSpec = proplists:get_value(methods_spec, Opts, ?PROTOCOL_METHODS_SPEC),
+-spec handle(#sheep_request{}, module(), list(), list(), any()) -> #sheep_response{}.
+handle(Request, HandlerModule, _HandlerOpts, SheepOpts, State) ->
+    MethodsSpec = proplists:get_value(methods_spec, SheepOpts, ?PROTOCOL_METHODS_SPEC),
     FindHandlers = lists:keyfind(Request#sheep_request.method, 1, MethodsSpec),
 
     Result = case FindHandlers of
@@ -121,7 +120,7 @@ handle(Opts, State, Request, HandlerModule, _HandlerOpts) ->
         [] ->
             throw({sheep, response_405()});
         {_, Handlers} when is_list(Handlers) ->
-            call_handlers(State, Request, HandlerModule, Handlers)
+            call_handlers(Request, HandlerModule, Handlers, State)
     end,
     case Result of
         {ok, OkResponse} ->
@@ -134,19 +133,17 @@ handle(Opts, State, Request, HandlerModule, _HandlerOpts) ->
                     status_code=StatusCode}
                 when is_integer(StatusCode) ->
                     handle_error(
-                        Request,
-                        [Request, StatusCode, ErrorResponse],
-                        HandlerModule);
+                        Request, HandlerModule,
+                        [Request, StatusCode, ErrorResponse]);
                 _ ->
                     handle_error(
-                        Request,
-                        [Request, {error, ErrorResponse}],
-                        HandlerModule)
+                        Request, HandlerModule,
+                        [Request, {error, ErrorResponse}])
             end
     end.
 
 
-handle_error(Request, Args, Handler) ->
+handle_error(Request, Handler, Args) ->
     Fn = erlang:function_exported(Handler, error_handler, length(Args)),
     case Fn of
         true ->

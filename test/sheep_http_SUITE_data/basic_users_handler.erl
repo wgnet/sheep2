@@ -15,12 +15,12 @@ init(_Transport, Req, _Opts) ->
     {upgrade, protocol, sheep_http, Req, []}.
 
 % Get specific user
-read(_State, #sheep_request{bindings=[{user_id, _}]})->
+read(#sheep_request{bindings=[{user_id, _}]}, _State)->
     Body = <<"Not found">>,
     {error, #sheep_response{status_code=404, body=Body}};
 
 % Get collection
-read(_State, _Request)->
+read(_Request, _State)->
     Data = [
         {[
             {<<"id">>, <<"1">>},

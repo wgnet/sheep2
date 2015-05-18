@@ -41,18 +41,18 @@ sheep_init(Request, Opts) ->
     State = #state{},
     {Options, State}.
 
-authorization(State, Request) ->
+authorization(Request, State) ->
     _Token = sheep_http:get_header(<<"token">>, Request),
     {noreply, State#state{counter = State#state.counter + 1}}.
 
-validation(State, Request) ->
+validation(Request, State) ->
     {noreply, State#state{counter = State#state.counter + 1}}.
 
-paged(State, Request) ->
+paged(Request, State) ->
     {noreply, State#state{counter = State#state.counter + 1}}.
 
 % Get collection
-read(State, _Request)->
+read(_Request, State)->
     Data = [
         {[
             {<<"id">>, <<"1">>},
