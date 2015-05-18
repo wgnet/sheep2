@@ -2,7 +2,7 @@
 
 Cowboy protocol and set of utility funs for building JSON/MsgPack APIs
 
-## Motivation
+# Motivation
 
 Cowboy already includes protocol "cowboy_rest", but it has a several disadvantages:
 
@@ -11,9 +11,18 @@ Cowboy already includes protocol "cowboy_rest", but it has a several disadvantag
 * no logging
 
 
-## User guide
+# User guide
 
-### Initialization
+* Initialization
+* Options
+    * methods_spec
+    * access_log_format
+* Error handling
+    * error_handler/3
+    * error_handler/2
+* Handlers
+
+## Initialization
 
 First you should initialize protocol for cowboy
 
@@ -35,9 +44,9 @@ sheep_init(Request, Opts) ->
     {Options, State}.
 ```
 
-#### Options
+## Options
 
-##### methods_spec
+### methods_spec
 
 Specifications for methods. Default value is:
 
@@ -50,7 +59,7 @@ Specifications for methods. Default value is:
 ]
 ```
 
-##### access_log_format
+### access_log_format
 
 > Need to implement
 
@@ -68,12 +77,12 @@ Default value is:
 $remote_addr $host - "$request" $status $http_user_agent
 ```
 
-### Error handling
+## Error handling
 
 There are two kinds of error handlers: with arity 2 and 3.
 
 
-#### error_handler/3
+### error_handler/3
 
 Called when handler returns atom **error** and record **sheep_response**
 
@@ -91,7 +100,7 @@ error_handler(#sheep_request{}, 400, #sheep_response{body= <<"Message">>}) ->
 ```
 
 
-#### error_handler/2
+### error_handler/2
 
 This is more general error handler that will called when exception occurs or 
 handler return custom error.
@@ -120,3 +129,79 @@ You can use following pattern matching:
 error_handler(#sheep_request{}, {throw, my_exception}) ->
 ```
 
+## Handlers
+
+For each of any http methods (GET, POST, PUT and etc.) in option parameter *methods_spec* (see above)
+you can specify list of functions that must be called. 
+
+Each of this function is should be return one of following values:
+
+* {noreply, State} - for this case will be called next function from list
+* {error, _} - for this case will be called appropriate **error_handler** (see above)
+* {ok, #sheep_response{}} - This result will be considered as final and it should be returns as response for request
+
+For example if you specify **methods_spec** with following value:
+
+```erlang
+{
+    methods_spec, [
+        {<<"POST">>, [authorization, validation, create]},
+        {<<"GET">>, [authorization, read]},
+        {<<"PUT">>, []},
+        {<<"DELETE">>, []}
+    ]
+}
+```
+
+By request with methods **PUT** or **DELETE** will be returned response with status
+code [405](http://httpstatus.es/405) (Method not allowed)
+
+For request with **POST** or **GET** methods you can define callback functions
+following way:
+
+```erlang
+
+authorization(State, Request) ->
+    Token = sheep_http:get_header(<<"token">>, Request),
+    case is_authorized(Token) of
+        false ->
+            % for breaking chains of callbacks and call error_handler
+            {error, #sheep_response{
+                        status_code=401, body= <<"Invalid token">>}};
+        true ->
+            % for to continue processing of request
+            {noreply, State#state{counter = State#state.counter + 1}}
+    end.
+
+validation(State, Request) ->
+    % code for validate
+    case Result of
+        error ->
+            {error, #sheep_response{
+                        status_code=400, body= <<"Validation failed">>}};
+        ok ->
+            {noreply, State#state{counter = State#state.counter + 1}}
+    end.
+
+% Get specific item of user
+read(_State, #sheep_request{bindings=[{user_id, ID}]})->
+    Data = {[
+        {<<"id">>, ID},
+        {<<"name">>, <<"Username 1">>}
+    ]},
+    {ok, #sheep_response{status_code=200, body=Body}};
+
+% Get collection
+read(_State, _Request)->
+    Data = [
+        {[
+            {<<"id">>, <<"1">>},
+            {<<"name">>, <<"Username 1">>}
+        ]},
+        {[
+            {<<"id">>, <<"2">>},
+            {<<"name">>, <<"Username 2">>}
+        ]}
+    ],
+    {ok, #sheep_response{status_code=200, body=Data}}.
+```
