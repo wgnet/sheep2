@@ -1,23 +1,3 @@
-%% Usefull links
-% 
-% http://jsonapi.org/
-% http://www.restapitutorial.com/
-% http://restful-api-design.readthedocs.org/en/latest/
-% http://restless.readthedocs.org/en/latest/tutorial.html#creating-updating-deleting-data
-
-% Problems with sheep
-% 
-% - complexity of exceptions
-% - internal exceptions can be obtained in user error handlers 
-% - stacktrace concatenation - is not convenient because 
-%   the real error can be contained in the middle of it
-% - complexity of hanlers (arity 5)
-% - not used functions for validation (may be deleted)
-% - not support authorization/validation (callbacks)
-% - no logging
-% - unexpected normalized parameters (and extra overhead for normalization)
-% - no differentiation by type of resource (collection/object)
-
 -module(sheep_http).
 
 
