@@ -204,4 +204,12 @@ read(_State, _Request)->
         ]}
     ],
     {ok, #sheep_response{status_code=200, body=Data}}.
+
+% Create new item
+create(_State, _Request)->
+    Data = {[
+        {<<"id">>, <<"100">>},
+        {<<"name">>, <<"New username">>}
+    ]},
+    {ok, #sheep_response{status_code=201, body=Data}}.
 ```
