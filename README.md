@@ -59,6 +59,32 @@ Specifications for methods. Default value is:
 ]
 ```
 
+### content_types_spec
+
+> Need to implement
+
+Specification of calback for decode/encode data for the appropriate
+**content-type**. Default value is:
+
+```erlang
+[
+    {
+        <<"application/json">>,
+        fun jiffy:decode/1,
+        fun jiffy:encode/1}
+    {
+        <<"application/x-msgpack">>,
+        fun(Payload) ->
+            {ok, ParamsMsgPack} = msgpack:unpack(Payload, [{format, jiffy}]),
+            ParamsMsgPack
+        end,
+        fun(Payload) ->
+            msgpack:pack(Payload, [{format, jiffy}])
+        end
+    }
+]
+```
+
 ### access_log_format
 
 > Need to implement
