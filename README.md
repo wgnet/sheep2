@@ -213,3 +213,6 @@ create(_State, _Request)->
     ]},
     {ok, #sheep_response{status_code=201, body=Data}}.
 ```
+
+> If all callbacks in chain are returned "noreply" then will be returned
+> response with status code [204](http://httpstatus.es/204) (No content)
