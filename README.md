@@ -161,11 +161,11 @@ error_handler(#sheep_request{}, {throw, my_exception}) ->
 For each of any http methods (GET, POST, PUT and etc.) in option parameter *methods_spec* (see above)
 you can specify list of functions that must be called. 
 
-Each of this function is should be return one of following values:
+Each function should return one of the following values:
 
-* {noreply, State} - for this case will be called next function from list
-* {error, _} - for this case will be called appropriate **error_handler** (see above)
-* {ok, #sheep_response{}} - This result will be considered as final and it should be returns as response for request
+* {noreply, State} - for this case the next function from list will be called
+* {error, _} - for this case appropriate **error_handler** (see above) will be called
+* {ok, #sheep_response{}} - This result will be considered as final and it should be returned as response for request
 
 For example if you specify **methods_spec** with following value:
 
