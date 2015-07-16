@@ -82,10 +82,10 @@ response_405() ->
     sheep_response(405, <<"Method not allowed">>).
 
 response_500() ->
-    sheep_response(500, <<"Not implemented">>).
+    sheep_response(500, <<"Internal server error">>).
 
 response_501() ->
-    sheep_response(501, <<"Internal server error">>).
+    sheep_response(501, <<"Not implemented">>).
 
 
 sheep_response(StatusCode, Message) ->
@@ -139,7 +139,11 @@ handle(Request, HandlerModule, _HandlerOpts, SheepOpts, State) ->
                     handle_error(
                         Request, HandlerModule,
                         [Request, {error, ErrorResponse}])
-            end
+            end;
+        _ ->
+            handle_error(
+                Request, HandlerModule,
+                [Request, {error, unknown_response}])
     end.
 
 
