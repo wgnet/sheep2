@@ -228,7 +228,7 @@ generate_payload(Response, ContentType) ->
             end;
         _AnyOtherContentType -> 
             try
-                jiffy:encode(Data)
+                jiffy:encode(Data, [pretty])
             catch
                 _:_ -> throw({
                     sheep,
