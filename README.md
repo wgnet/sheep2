@@ -18,7 +18,6 @@ Cowboy already includes protocol "cowboy_rest", but it has a several disadvantag
     * methods_spec
     * decode_spec
     * encode_spec
-    * content_types_spec
     * access_log_format
 * Error handling
     * error_handler/3
