@@ -16,6 +16,8 @@ Cowboy already includes protocol "cowboy_rest", but it has a several disadvantag
 * Initialization
 * Options
     * methods_spec
+    * decode_spec
+    * encode_spec
     * content_types_spec
     * access_log_format
 * Error handling
@@ -60,29 +62,29 @@ Specifications for methods. Default value is:
 ]
 ```
 
-### content_types_spec
+### decode_spec
 
-> Need to implement
+Specification of calback for decode data for the appropriate **content-type**.
 
-Specification of calback for decode/encode data for the appropriate
-**content-type**. Default value is:
+Default value is:
 
 ```erlang
 [
-    {
-        <<"application/json">>,
-        fun jiffy:decode/1,
-        fun jiffy:encode/1}
-    {
-        <<"application/x-msgpack">>,
-        fun(Payload) ->
-            {ok, ParamsMsgPack} = msgpack:unpack(Payload, [{format, jiffy}]),
-            ParamsMsgPack
-        end,
-        fun(Payload) ->
-            msgpack:pack(Payload, [{format, jiffy}])
-        end
-    }
+    {?CT_APP_JSON, fun jiffy:decode/1},
+    {?CT_APP_X_MSGPACK, fun(Payload) -> msgpack:unpack(Payload, [{format, jiffy}]) end}
+]
+```
+
+### encode_spec
+
+Specification of calback for encode data for the appropriate **content-type**.
+
+Default value is:
+
+```erlang
+[
+    {?CT_APP_JSON, fun jiffy:encode/1},
+    {?CT_APP_X_MSGPACK, fun(Payload) -> msgpack:pack(Payload, [{format, jiffy}]) end}
 ]
 ```
 
