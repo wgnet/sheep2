@@ -69,8 +69,15 @@ Default value is:
 
 ```erlang
 [
-    {?CT_APP_JSON, fun jiffy:decode/1},
-    {?CT_APP_X_MSGPACK, fun(Payload) -> msgpack:unpack(Payload, [{format, jiffy}]) end}
+    {?CT_APP_JSON,
+        fun(Payload)
+            jiffy:decode(Payload, [return_maps])
+        end},
+    {?CT_APP_X_MSGPACK,
+        fun(Payload) ->
+            {ok, Data} = msgpack:unpack(Payload, [{format, map}]),
+            Data
+        end}
 ]
 ```
 
@@ -86,7 +93,10 @@ Default value is:
 ```erlang
 [
     {?CT_APP_JSON, fun jiffy:encode/1},
-    {?CT_APP_X_MSGPACK, fun(Payload) -> msgpack:pack(Payload, [{format, jiffy}]) end}
+    {?CT_APP_X_MSGPACK,
+        fun(Payload) ->
+            msgpack:pack(Payload, [{format, map}])
+        end}
 ]
 ```
 
@@ -133,7 +143,7 @@ error_handler(#sheep_request{}, 400, #sheep_response{body= <<"Message">>}) ->
 
 ### error_handler/2
 
-This is more general error handler that will called when exception occurs or 
+This is more general error handler that will called when exception occurs or
 handler return custom error.
 
 For example, if handler returns following tuple
@@ -163,7 +173,7 @@ error_handler(#sheep_request{}, {throw, my_exception}) ->
 ## Handlers
 
 For each of any http methods (GET, POST, PUT and etc.) in option parameter *methods_spec* (see above)
-you can specify list of functions that must be called. 
+you can specify list of functions that must be called.
 
 Each function should return one of the following values:
 

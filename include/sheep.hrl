@@ -20,12 +20,22 @@
 
 -define(PROTOCOL_ENCODE_SPEC, [
     {?CT_APP_JSON, fun jiffy:encode/1},
-    {?CT_APP_X_MSGPACK, fun(Payload) -> msgpack:pack(Payload, [{format, jiffy}]) end}
+    {?CT_APP_X_MSGPACK,
+        fun(Payload) ->
+            msgpack:pack(Payload, [{format, map}])
+        end}
 ]).
 
 -define(PROTOCOL_DECODE_SPEC, [
-    {?CT_APP_JSON, fun jiffy:decode/1},
-    {?CT_APP_X_MSGPACK, fun(Payload) -> msgpack:unpack(Payload, [{format, jiffy}]) end}
+    {?CT_APP_JSON,
+        fun(Payload) ->
+            jiffy:decode(Payload, [return_maps])
+        end},
+    {?CT_APP_X_MSGPACK,
+        fun(Payload) ->
+            {ok, Data} = msgpack:unpack(Payload, [{format, map}]),
+            Data
+        end}
 ]).
 
 -record(sheep_request, {

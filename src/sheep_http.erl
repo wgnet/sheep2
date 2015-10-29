@@ -29,7 +29,7 @@ upgrade(CowReq, Env, Handler, HandlerOpts) ->
         query = Query
     },
 
-    {SheepOpts, State} = case 
+    {SheepOpts, State} = case
         erlang:function_exported(Handler, sheep_init, 2)
     of
         true ->
@@ -48,7 +48,7 @@ upgrade(CowReq, Env, Handler, HandlerOpts) ->
             handle_error(Handler, [Request, {Class, Reason}])
     end,
     FinalResponse = encode_payload(CowReq, Response, SheepOpts),
-    
+
     {ok, CowResponse} = cowboy_req:reply(
         FinalResponse#sheep_response.status_code,
         FinalResponse#sheep_response.headers,
@@ -64,7 +64,7 @@ call_handlers(_Request, _Module, [], _State) ->
 call_handlers(Request, Module, [HandlerFun|Handlers], State) ->
     Fun = erlang:function_exported(Module, HandlerFun, 2),
     Result = case Fun of
-        true -> 
+        true ->
             Module:HandlerFun(Request, State);
         _ ->
             throw({sheep, sheep_response:new_501()})
