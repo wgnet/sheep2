@@ -74,6 +74,9 @@ Default value is:
 ]
 ```
 
+See test handler [encode_decode_handler.erl](./test/sheep_http_SUITE_data/encode_decode_handler.erl)
+as example how this can be used
+
 ### encode_spec
 
 Specification of calback for encode data for the appropriate **content-type**.
