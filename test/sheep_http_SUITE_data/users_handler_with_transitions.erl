@@ -23,7 +23,7 @@ init(_Transport, Req, _Opts) ->
     {upgrade, protocol, sheep_http, Req, []}.
 
 -spec sheep_init(#sheep_request{}, any()) -> {list(), any()}.
-sheep_init(Request, Opts) ->
+sheep_init(_Request, _Opts) ->
     Options = [
         {
             methods_spec, [
@@ -45,14 +45,14 @@ authorization(Request, State) ->
     _Token = sheep_http:get_header(<<"token">>, Request),
     {noreply, State#state{counter = State#state.counter + 1}}.
 
-validation(Request, State) ->
+validation(_Request, State) ->
     {noreply, State#state{counter = State#state.counter + 1}}.
 
-paged(Request, State) ->
+paged(_Request, State) ->
     {noreply, State#state{counter = State#state.counter + 1}}.
 
 % Get collection
-read(_Request, State)->
+read(_Request, _State)->
     Data = [
         {[
             {<<"id">>, <<"1">>},

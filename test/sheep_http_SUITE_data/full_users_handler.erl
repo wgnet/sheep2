@@ -13,7 +13,7 @@ init(_Transport, Req, _Opts) ->
     {upgrade, protocol, sheep_http, Req, []}.
 
 -spec sheep_init(#sheep_request{}, any()) -> {list(), any()}.
-sheep_init(Request, Opts) ->
+sheep_init(_Request, _Opts) ->
     {[
         {methods_spec, [
             {<<"POST">>, [create]},
@@ -30,7 +30,7 @@ read(#sheep_request{bindings=[{user_id, _}]} = Request, _State)->
     {ok, #sheep_response{status_code=200, body=Data}};
 
 % Get collection
-read(_Request, State)->
+read(_Request, _State)->
     Data = {[
         {<<"key">>, <<"value">>}
     ]},

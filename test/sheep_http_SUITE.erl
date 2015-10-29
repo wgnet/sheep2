@@ -11,14 +11,16 @@
 -export([
     basic_users_handler_test/1,
     basic_user_handler_with_error_handler_test/1,
-    users_handler_with_transitions_test/1
+    users_handler_with_transitions_test/1,
+    encode_decode_handler_test/1
 ]).
 
 all() ->
     [
         basic_users_handler_test,
         basic_user_handler_with_error_handler_test,
-        users_handler_with_transitions_test
+        users_handler_with_transitions_test,
+        encode_decode_handler_test
     ].
 
 init_dispatch() ->
@@ -38,7 +40,12 @@ init_dispatch() ->
             {
                 "/full/users[/:user_id]",
                 full_users_handler, []},
-            {"/customers[/:customer_id]/orders[/:order_id]", orders_handler, []}
+            {
+                "/customers[/:customer_id]/orders[/:order_id]",
+                orders_handler, []},
+            {
+                "/encode_decode",
+                encode_decode_handler, []}
         ]}
     ]).
 
@@ -61,9 +68,11 @@ init_per_suite(Config) ->
         |Config
     ].
 
+
 end_per_suite(_Config) ->
     cowboy:stop_listener(server),
     ok.
+
 
 build_url(Path, Config) ->
     Port = ?config(port, Config),
@@ -125,6 +134,7 @@ basic_user_handler_with_error_handler_test(Config) ->
         Client),
     {ok, 400, _, _} = cowboy_client:response(Request5).
 
+
 users_handler_with_transitions_test(Config) ->
     Client = ?config(client, Config),
     {ok, Request1} = cowboy_client:request(
@@ -133,3 +143,31 @@ users_handler_with_transitions_test(Config) ->
         [{<<"accept">>, <<"application/json">>}],
         Client),
     {ok, 200, _, _} = cowboy_client:response(Request1).
+
+
+encode_decode_handler_test(Config) ->
+    Client = ?config(client, Config),
+    {ok, Request1} = cowboy_client:request(
+        <<"GET">>,
+        build_url(<<"/encode_decode">>, Config),
+        [],
+        <<"{}">>,
+        Client),
+    {ok, 200, _, _} = cowboy_client:response(Request1),
+
+    {ok, Request2} = cowboy_client:request(
+        <<"GET">>,
+        build_url(<<"/encode_decode">>, Config),
+        [{<<"accept">>, <<"application/x-msgpack">>}],
+        <<"{}">>,
+        Client),
+    {ok, 406, _, _} = cowboy_client:response(Request2),
+
+    {ok, Request3} = cowboy_client:request(
+        <<"GET">>,
+        build_url(<<"/encode_decode">>, Config),
+        [{<<"content-type">>, <<"application/x-msgpack">>}],
+        <<"">>,
+        Client),
+    {ok, 415, _, _} = cowboy_client:response(Request3),
+    ok.

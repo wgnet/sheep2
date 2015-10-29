@@ -1,15 +1,15 @@
 
 get-deps:
-	rebar get-deps
+	./rebar get-deps
 
 compile: get-deps
-	rebar compile
+	./rebar compile
 
 compile-ct: get-deps
-	rebar compile -C rebar_ct.config
+	./rebar compile -C rebar_ct.config
 
 test: compile-ct
-	rebar skip_deps=true ct -C rebar_ct.config
+	./rebar skip_deps=true ct -C rebar_ct.config
 
 clean:
 	rebar -r clean
