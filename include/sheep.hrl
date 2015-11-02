@@ -19,7 +19,11 @@
 ]).
 
 -define(PROTOCOL_ENCODE_SPEC, [
-    {?CT_APP_JSON, fun jiffy:encode/1},
+    {?CT_APP_JSON,
+        fun(Payload) ->
+            jiffy:encode(Payload ,[pretty])
+        end
+    },
     {?CT_APP_X_MSGPACK,
         fun(Payload) ->
             msgpack:pack(Payload, [{format, map}])
