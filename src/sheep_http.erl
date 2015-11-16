@@ -150,11 +150,24 @@ error_handler(_Request, Exception) ->
 
 -spec decode_payload(cowboy_req:req(), #sheep_request{}, list()) -> #sheep_request{}.
 decode_payload(CowReq, Request, SheepOpts) ->
-    {ContentType, _} = cowboy_req:header(<<"content-type">>, CowReq, ?CT_APP_JSON),
+    {RawContentType, _} = cowboy_req:header(<<"content-type">>, CowReq, ?CT_APP_JSON),
+
+    % http://www.w3.org/Protocols/rfc1341/4_Content-Type.html
+    CleanContentType = case
+        binary:split(RawContentType, <<";">>)
+    of
+        [ContentType, Parameters] -> ContentType;
+        [ContentType] -> ContentType
+    end,
+
     DecodeSpec = proplists:get_value(decode_spec, SheepOpts, ?PROTOCOL_DECODE_SPEC),
 
-    Fn = case proplists:get_value(ContentType, DecodeSpec) of
+    Fn = case proplists:get_value(CleanContentType, DecodeSpec) of
         undefined ->
+            error_logger:info_report([
+                {error, "not supported"},
+                {<<"content-type">>, RawContentType}
+            ]),
             throw({
                 sheep, sheep_response:new(415, <<"Not supported 'content-type'">>)});
         F -> F
