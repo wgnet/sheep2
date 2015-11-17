@@ -48,11 +48,11 @@
     headers = [],
     bindings = {[]},
     query = {[]},
-    body = {[]} :: json_obj()
+    body = #{}
 }).
 
 -record(sheep_response, {
     status_code,
     headers = [],
-    body = {[]}
+    body = #{}
 }).
