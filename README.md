@@ -187,7 +187,7 @@ For example if you specify **methods_spec** with following value:
 {
     methods_spec, [
         {<<"POST">>, [authorization, validation, create]},
-        {<<"GET">>, [authorization, read]},
+        {<<"GET">>, [authorization, fun http_helpers:pagination/2, read]},
         {<<"PUT">>, []},
         {<<"DELETE">>, []}
     ]

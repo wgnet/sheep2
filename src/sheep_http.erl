@@ -62,17 +62,22 @@ call_handlers(_Request, _Module, [], _State) ->
 
 
 call_handlers(Request, Module, [HandlerFun|Handlers], State) ->
-    Fun = erlang:function_exported(Module, HandlerFun, 2),
-    Result = case Fun of
-        true ->
-            Module:HandlerFun(Request, State);
+    Fun = case
+        erlang:is_function(HandlerFun, 2)
+    of
+        true -> HandlerFun;
         _ ->
-            throw({sheep, sheep_response:new_501()})
+            case
+                erlang:function_exported(Module, HandlerFun, 2)
+            of
+                true -> fun Module:HandlerFun/2;
+                _ -> throw({sheep, sheep_response:new_501()})
+            end
     end,
-    case Result of
+    case Fun(Request, State) of
         {noreply, NewState} ->
             call_handlers(Request, Module, Handlers, NewState);
-        _ ->
+        Result ->
             Result
     end.
 
