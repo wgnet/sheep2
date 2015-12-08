@@ -161,7 +161,7 @@ decode_payload(CowReq, Request, SheepOpts) ->
     CleanContentType = case
         binary:split(RawContentType, <<";">>)
     of
-        [ContentType, Parameters] -> ContentType;
+        [ContentType, _Parameters] -> ContentType;
         [ContentType] -> ContentType
     end,
 
