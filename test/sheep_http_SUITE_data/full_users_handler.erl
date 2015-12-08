@@ -24,14 +24,13 @@ sheep_init(_Request, _Opts) ->
     ],
     []}.
 
-% Get item
-read(#sheep_request{bindings=[{user_id, _}]} = Request, _State)->
-    Data = {Request#sheep_request.bindings},
-    {ok, #sheep_response{status_code=200, body=Data}};
-
-% Get collection
-read(_Request, _State)->
-    Data = {[
-        {<<"key">>, <<"value">>}
-    ]},
-    {ok, #sheep_response{status_code=200, body=Data}}.
+read(#sheep_request{bindings = Bindings}, _State)->
+    case maps:find(<<"user_id">>, Bindings) of
+        {ok, _UserID} -> % Get specific user
+            {ok, #sheep_response{status_code=200, body=Bindings}};
+        error -> % Get collection
+            Data = {[
+                     {<<"key">>, <<"value">>}
+                    ]},
+            {ok, #sheep_response{status_code=200, body=Data}}
+    end.

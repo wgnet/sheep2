@@ -44,32 +44,26 @@ error_handler(_Request, {throw, test_exception}) ->
     #sheep_response{status_code=400, body=Data}.
 
 
-% Get specific user
-read(#sheep_request{bindings=[{user_id, <<"error_id">>}]}, _State)->
-    Body = <<"Error message">>,
-    {error, #sheep_response{status_code=400, body=Body}};
-
-read(#sheep_request{bindings=[{user_id, <<"custom_error_id">>}]}, _State)->
-    {error, {custom_error, <<"Error message">>}};
-
-read(#sheep_request{bindings=[{user_id, <<"throw_id">>}]}, _State)->
-    throw(test_exception),
-    ok;
-
-read(#sheep_request{bindings=[{user_id, _}]}, _State)->
-    Body = <<"Not found">>,
-    {ok, #sheep_response{status_code=404, body=Body}};
-
-% Get collection
-read(_Request, _State)->
-    Data = [
-        {[
-            {<<"id">>, <<"1">>},
-            {<<"name">>, <<"Username 1">>}
-        ]},
-        {[
-            {<<"id">>, <<"2">>},
-            {<<"name">>, <<"Username 2">>}
-        ]}
-    ],
-    {ok, #sheep_response{status_code=200, body=Data}}.
+read(#sheep_request{bindings=Bindings}, _State)->
+    case maps:find(<<"user_id">>, Bindings) of
+        {ok, <<"error_id">>} ->
+            {error, #sheep_response{status_code=400, body= <<"Error message">>}};
+        {ok, <<"custom_error_id">>} ->
+            {error, {custom_error, <<"Error message">>}};
+        {ok, <<"throw_id">>} ->
+            throw(test_exception);
+        {ok, _} ->
+            {ok, #sheep_response{status_code=404, body= <<"Not found">>}};
+        error ->
+            Data = [
+                    {[
+                      {<<"id">>, <<"1">>},
+                      {<<"name">>, <<"Username 1">>}
+                     ]},
+                    {[
+                      {<<"id">>, <<"2">>},
+                      {<<"name">>, <<"Username 2">>}
+                     ]}
+                   ],
+            {ok, #sheep_response{status_code=200, body=Data}}
+    end.
