@@ -25,8 +25,8 @@ upgrade(CowReq, Env, Handler, HandlerOpts) ->
     Request = #sheep_request{
         method = Method,
         headers = Headers,
-        bindings = Bindings,
-        query = Query
+        bindings = to_map(Bindings),
+        query = to_map(Query)
     },
 
     {SheepOpts, State} = case
@@ -161,7 +161,7 @@ decode_payload(CowReq, Request, SheepOpts) ->
     CleanContentType = case
         binary:split(RawContentType, <<";">>)
     of
-        [ContentType, Parameters] -> ContentType;
+        [ContentType, _Parameters] -> ContentType;
         [ContentType] -> ContentType
     end,
 
@@ -244,3 +244,11 @@ get_header(Name, Request, Default) ->
         {_, Value} -> Value;
         false -> Default
     end.
+
+
+-spec to_map([proplists:property()]) -> map().
+to_map(List) ->
+    maps:from_list(
+      lists:map(fun({K, V}) ->
+                        {list_to_binary(atom_to_list(K)), V}
+                end, List)).

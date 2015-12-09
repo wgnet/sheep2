@@ -24,14 +24,11 @@ sheep_init(_Request, _Opts) ->
     ],
     []}.
 
-% Get item
-read(#sheep_request{bindings=[{user_id, _}]} = Request, _State)->
-    Data = {Request#sheep_request.bindings},
-    {ok, #sheep_response{status_code=200, body=Data}};
+read(#sheep_request{bindings = #{<<"user_id">> := _} = Bindings}, _State)->
+    {ok, #sheep_response{status_code=200, body=Bindings}};
 
-% Get collection
-read(_Request, _State)->
+read(#sheep_request{}, _State)->
     Data = {[
-        {<<"key">>, <<"value">>}
-    ]},
+             {<<"key">>, <<"value">>}
+            ]},
     {ok, #sheep_response{status_code=200, body=Data}}.
