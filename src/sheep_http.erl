@@ -249,6 +249,10 @@ get_header(Name, Request, Default) ->
 -spec to_map([proplists:property()]) -> map().
 to_map(List) ->
     maps:from_list(
-      lists:map(fun({K, V}) ->
-                        {list_to_binary(atom_to_list(K)), V}
+      lists:map(fun({K, V}) when is_atom(K) ->
+                        {list_to_binary(atom_to_list(K)), V};
+                   ({K, V}) when is_list(K) ->
+                        {list_to_binary(K), V};
+                   ({K, V}) when is_binary(K) ->
+                        {K, V}
                 end, List)).
