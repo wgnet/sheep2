@@ -81,12 +81,15 @@ Default value is:
 ]
 ```
 
+In case if the **content-type** header is not specified incoming data will be
+considered as *json* - encoded
+
 See test handler [encode_decode_handler.erl](./test/sheep_http_SUITE_data/encode_decode_handler.erl)
 as example how this can be used
 
 ### encode_spec
 
-Specification of calback for encode data for the appropriate **content-type**.
+Specification of calback for encode data for the appropriate **accept**.
 
 Default value is:
 
@@ -99,6 +102,8 @@ Default value is:
         end}
 ]
 ```
+
+In case if the **accept** header is not specified response will be encoded to *json*
 
 ### access_log_format
 
