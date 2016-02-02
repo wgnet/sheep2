@@ -1,17 +1,13 @@
+.PHONY: test
 
-get-deps:
-	./rebar get-deps
+REBAR=./rebar3
 
-compile: get-deps
-	./rebar compile
+compile:
+	${REBAR} compile
 
-compile-ct: get-deps
-	./rebar compile -C rebar_ct.config
-
-test: compile-ct
-	./rebar skip_deps=true ct -C rebar_ct.config
+test:
+	${REBAR} ct
+	${REBAR} cover
 
 clean:
-	rebar -r clean
-	rm -rf logs
-	find . -name "*.beam" -delete
+	${REBAR} clean

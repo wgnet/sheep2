@@ -6,3 +6,5 @@ deps
 *.cache
 *.log
 *.beam
+rebar.lock
+_build/
