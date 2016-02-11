@@ -201,6 +201,20 @@ decode_payload(CowReq, Request, SheepOpts) ->
 
 
 -spec encode_payload(cowboy_req:req(), #sheep_response{}, list()) -> #sheep_response{}.
+
+encode_payload(CowReq, #sheep_response{body= undefined} = Response, SheepOpts) ->
+    encode_payload(CowReq, Response#sheep_response{body= <<>>}, SheepOpts);
+
+encode_payload(_CowReq, #sheep_response{body= <<>>} = Response, _SheepOpts) ->
+    case
+        Response#sheep_response.status_code
+    of
+        undefined ->
+            Response#sheep_response{status_code=204};
+        _ ->
+            Response
+    end;
+
 encode_payload(CowReq, Response, SheepOpts) ->
     {AcceptContentType, _} = cowboy_req:header(<<"accept">>, CowReq, ?CT_APP_JSON),
     EncodeSpec = proplists:get_value(encode_spec, SheepOpts, ?PROTOCOL_ENCODE_SPEC),

@@ -20,7 +20,7 @@ sheep_init(_Request, _Opts) ->
     {[
         {decode_spec, [
             {<<"application/json">>,
-                fun(Data) -> 
+                fun(Data) ->
                     {L} = jiffy:decode(Data),
                     M = maps:from_list(L),
                     M#{custom_encoder => ok}
@@ -41,7 +41,16 @@ sheep_init(_Request, _Opts) ->
     ],
     []}.
 
+read(#sheep_request{bindings = #{<<"kind">> := <<"empty">>}} = _Request, _State) ->
+    {ok, #sheep_response{body= <<>>}};
+
+read(#sheep_request{bindings = #{<<"kind">> := <<"empty_404">>}} = _Request, _State) ->
+    {ok, #sheep_response{status_code=404, body= <<>>}};
+
+read(#sheep_request{bindings = #{<<"kind">> := <<"undefined">>}} = _Request, _State) ->
+    {ok, #sheep_response{body= undefined}};
+
 % Get collection
-read(Request, _State)->
+read(Request, _State) ->
     Data = Request#sheep_request.body,
     {ok, #sheep_response{status_code=200, body=Data}}.

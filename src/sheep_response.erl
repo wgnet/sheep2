@@ -5,7 +5,7 @@
 -include("sheep.hrl").
 
 new_204() ->
-    new(204, <<"">>).
+    new(204, <<>>).
 
 new_405() ->
     new(405, <<"Method not allowed">>).
