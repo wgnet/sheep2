@@ -5,7 +5,7 @@
 -include("sheep.hrl").
 
 new_204() ->
-    new(204, <<"">>).
+    new(204, <<>>).
 
 new_404() ->
     new(404, <<"Not found">>).

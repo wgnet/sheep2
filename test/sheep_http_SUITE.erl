@@ -44,7 +44,7 @@ init_dispatch() ->
                 "/customers[/:customer_id]/orders[/:order_id]",
                 orders_handler, []},
             {
-                "/encode_decode",
+                "/encode_decode[/:kind]",
                 encode_decode_handler, []}
         ]}
     ]).
@@ -170,4 +170,25 @@ encode_decode_handler_test(Config) ->
         <<"">>,
         Client),
     {ok, 415, _, _} = cowboy_client:response(Request3),
+
+    {ok, Request4} = cowboy_client:request(
+        <<"GET">>,
+        build_url(<<"/encode_decode/empty">>, Config),
+        [{<<"content-type">>, <<"application/json">>}],
+        Client),
+    {ok, 204, _, _} = cowboy_client:response(Request4),
+
+    {ok, Request5} = cowboy_client:request(
+        <<"GET">>,
+        build_url(<<"/encode_decode/empty_404">>, Config),
+        [{<<"content-type">>, <<"application/json">>}],
+        Client),
+    {ok, 404, _, _} = cowboy_client:response(Request5),
+
+    {ok, Request6} = cowboy_client:request(
+        <<"GET">>,
+        build_url(<<"/encode_decode/undefined">>, Config),
+        [{<<"content-type">>, <<"application/json">>}],
+        Client),
+    {ok, 204, _, _} = cowboy_client:response(Request6),
     ok.

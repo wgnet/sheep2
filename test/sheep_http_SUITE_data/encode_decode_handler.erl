@@ -41,6 +41,16 @@ sheep_init(_Request, _Opts) ->
     ],
     []}.
 
+read(#{bindings := #{<<"kind">> := <<"empty">>}} = _Request, _State) ->
+    {ok, sheep_http:response(#{})};
+
+read(#{bindings := #{<<"kind">> := <<"empty_404">>}} = _Request, _State) ->
+    {ok, sheep_http:response(#{status_code => 404})};
+
+read(#{bindings := #{<<"kind">> := <<"undefined">>}} = _Request, _State) ->
+    {ok, sheep_http:response(#{})};
+
+
 % Get collection
 read(#{body := Data}, _State)->
     {ok, sheep_http:response(#{status_code => 200, body => Data})}.

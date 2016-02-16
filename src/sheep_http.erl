@@ -270,7 +270,7 @@ request(Data) ->
 -spec response(map()) -> map().
 response(Data) ->
     maps:merge(#{
-                  status_code => 0,
+                  status_code => 204,
                   headers => [],
                   body => #{}
                 }, Data).
