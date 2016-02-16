@@ -9,7 +9,9 @@
     get_header/2,
     get_header/3,
     error_handler/2,
-    error_handler/3
+    error_handler/3,
+    request/1,
+    response/1
 ]).
 
 -include("sheep.hrl").
@@ -22,38 +24,39 @@ upgrade(CowReq, Env, Handler, HandlerOpts) ->
     {Query, _} = cowboy_req:qs_vals(CowReq),
     {Headers, _} = cowboy_req:headers(CowReq),
 
-    Request = #sheep_request{
-        method = Method,
-        headers = Headers,
-        bindings = to_map(Bindings),
-        query = to_map(Query)
-    },
+    Request = request(#{
+                         method => Method,
+                         headers => Headers,
+                         bindings => to_map(Bindings),
+                         query => to_map(Query)
+                       }),
 
-    {SheepOpts, State} = case
-        erlang:function_exported(Handler, sheep_init, 2)
-    of
-        true ->
-            Handler:sheep_init(Request, HandlerOpts);
-        false -> {[], []}
-    end,
+    {SheepOpts, State} =
+        case
+            erlang:function_exported(Handler, sheep_init, 2)
+        of
+            true ->
+                Handler:sheep_init(Request, HandlerOpts);
+            false -> {[], []}
+        end,
 
-    Response = try
-        UpdRequest = decode_payload(CowReq, Request, SheepOpts),
-        handle(UpdRequest, Handler, HandlerOpts, SheepOpts, State)
-    catch
-        throw:{sheep, #sheep_response{status_code=StatusCode}=ErrorResponse} ->
-            handle_error(
-                Handler, [Request, StatusCode, ErrorResponse]);
-        Class:Reason ->
-            handle_error(Handler, [Request, {Class, Reason}])
-    end,
-    FinalResponse = encode_payload(CowReq, Response, SheepOpts),
+    Response =
+        try
+            UpdRequest = decode_payload(CowReq, Request, SheepOpts),
+            handle(UpdRequest, Handler, HandlerOpts, SheepOpts, State)
+        catch
+            throw:{sheep, #{status_code := StatusCode} = ErrorResponse} ->
+                handle_error(
+                  Handler, [Request, StatusCode, ErrorResponse]);
+            Class:Reason ->
+                handle_error(Handler, [Request, {Class, Reason}])
+        end,
 
-    {ok, CowResponse} = cowboy_req:reply(
-        FinalResponse#sheep_response.status_code,
-        FinalResponse#sheep_response.headers,
-        FinalResponse#sheep_response.body, CowReq),
-    sheep_logging:request(CowResponse, FinalResponse#sheep_response.status_code),
+    #{status_code := ResponseCode, headers := ResponseHeaders, body := Body} =
+        encode_payload(CowReq, Response, SheepOpts),
+
+    {ok, CowResponse} = cowboy_req:reply(ResponseCode, ResponseHeaders, Body, CowReq),
+    sheep_logging:request(CowResponse, ResponseCode),
     {ok, CowResponse, Env}.
 
 
@@ -82,15 +85,13 @@ call_handlers(Request, Module, [HandlerFun|Handlers], State) ->
     end.
 
 
--spec handle(#sheep_request{}, module(), list(), list(), any()) -> #sheep_response{}.
-handle(Request, HandlerModule, _HandlerOpts, SheepOpts, State) ->
+-spec handle(map(), module(), list(), list(), any()) -> map().
+handle(#{method := Method} = Request, HandlerModule, _HandlerOpts, SheepOpts, State) ->
     MethodsSpec = proplists:get_value(methods_spec, SheepOpts, ?PROTOCOL_METHODS_SPEC),
-    FindHandlers = lists:keyfind(Request#sheep_request.method, 1, MethodsSpec),
+    FindHandlers = lists:keyfind(Method, 1, MethodsSpec),
 
     Result = case FindHandlers of
         false ->
-            throw({sheep, sheep_response:new_405()});
-        [] ->
             throw({sheep, sheep_response:new_405()});
         {_, Handlers} when is_list(Handlers) ->
             call_handlers(Request, HandlerModule, Handlers, State)
@@ -99,8 +100,7 @@ handle(Request, HandlerModule, _HandlerOpts, SheepOpts, State) ->
         {ok, OkResponse} -> OkResponse;
         {error, ErrorResponse} ->
             case ErrorResponse of
-                #sheep_response{
-                    status_code=StatusCode}
+                #{status_code := StatusCode}
                 when is_integer(StatusCode) ->
                     handle_error(
                         HandlerModule,
@@ -138,13 +138,12 @@ handle_error(Handler, Args) ->
     end.
 
 
--spec error_handler(#sheep_request{}, integer(), #sheep_response{})
-    -> #sheep_response{}.
+-spec error_handler(map(), integer(), map()) -> map().
 error_handler(_Request, _StatusCode, Response) ->
     Response.
 
 
--spec error_handler(#sheep_request{}, {atom(), any()}) -> #sheep_response{}.
+-spec error_handler(map(), {atom(), any()}) -> map().
 error_handler(_Request, Exception) ->
     error_logger:error_report([
         {exception, Exception},
@@ -153,7 +152,7 @@ error_handler(_Request, Exception) ->
     sheep_response:new_500().
 
 
--spec decode_payload(cowboy_req:req(), #sheep_request{}, list()) -> #sheep_request{}.
+-spec decode_payload(cowboy_req:req(), map(), list()) -> map().
 decode_payload(CowReq, Request, SheepOpts) ->
     {RawContentType, _} = cowboy_req:header(<<"content-type">>, CowReq, ?CT_APP_JSON),
 
@@ -182,7 +181,7 @@ decode_payload(CowReq, Request, SheepOpts) ->
         true ->
             {ok, Body, _} = cowboy_req:body(CowReq),
             try
-                Request#sheep_request{body = Fn(Body)}
+                Request#{body := Fn(Body)}
             catch
                 Class:Reason ->
                     error_logger:info_report([
@@ -194,14 +193,14 @@ decode_payload(CowReq, Request, SheepOpts) ->
                     throw({sheep,
                         sheep_response:new(
                             400,
-                            <<"Can't decode '", ContentType/binary, "' payload">>)})
+                            <<"Can't decode '", RawContentType/binary, "' payload">>)})
             end;
         false -> Request
     end.
 
 
--spec encode_payload(cowboy_req:req(), #sheep_response{}, list()) -> #sheep_response{}.
-encode_payload(CowReq, Response, SheepOpts) ->
+-spec encode_payload(cowboy_req:req(), map(), list()) -> map().
+encode_payload(CowReq, #{body := Data, headers := Headers} = Response, SheepOpts) ->
     {AcceptContentType, _} = cowboy_req:header(<<"accept">>, CowReq, ?CT_APP_JSON),
     EncodeSpec = proplists:get_value(encode_spec, SheepOpts, ?PROTOCOL_ENCODE_SPEC),
 
@@ -211,14 +210,12 @@ encode_payload(CowReq, Response, SheepOpts) ->
             sheep_response:new(
                 406, <<"Not acceptable">>);
         Fn ->
-            Data = Response#sheep_response.body,
-            Headers = Response#sheep_response.headers,
             try
-                Response#sheep_response{
-                    headers = lists:keystore(
-                        <<"content-type">>, 1, Headers,
-                        {<<"content-type">>, AcceptContentType}),
-                    body = Fn(Data)}
+                Response#{
+                  headers := lists:keystore(
+                               <<"content-type">>, 1, Headers,
+                               {<<"content-type">>, AcceptContentType}),
+                  body := Fn(Data)}
             catch
                 Class:Reason ->
                     error_logger:info_report([
@@ -234,13 +231,13 @@ encode_payload(CowReq, Response, SheepOpts) ->
     end.
 
 
--spec get_header(binary(), #sheep_request{}) -> binary().
+-spec get_header(binary(), map()) -> binary().
 get_header(Name, Request) ->
     get_header(Name, Request, undefined).
 
--spec get_header(binary(), #sheep_request{}, any()) -> binary().
-get_header(Name, Request, Default) ->
-    case lists:keyfind(Name, 1, Request#sheep_request.headers) of
+-spec get_header(binary(), map(), any()) -> binary().
+get_header(Name, #{headers := Headers}, Default) ->
+    case lists:keyfind(Name, 1, Headers) of
         {_, Value} -> Value;
         false -> Default
     end.
@@ -256,3 +253,24 @@ to_map(List) ->
                    ({K, V}) when is_binary(K) ->
                         {K, V}
                 end, List)).
+
+
+-spec request(map()) -> map().
+request(Data) ->
+    maps:merge(#{
+                  meta => [],
+                  method => undefined,
+                  headers => [],
+                  bindings => {[]},
+                  query => {[]},
+                  body => #{}
+                }, Data).
+
+
+-spec response(map()) -> map().
+response(Data) ->
+    maps:merge(#{
+                  status_code => 0,
+                  headers => [],
+                  body => #{}
+                }, Data).

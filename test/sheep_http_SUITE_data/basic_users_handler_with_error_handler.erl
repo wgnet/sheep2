@@ -4,13 +4,13 @@
     init/3
 ]).
 
-% Error handlers
+%% Error handlers
 -export([
     error_handler/3,
     error_handler/2
 ]).
 
-% Request handlers
+%% Request handlers
 -export([
     read/2
 ]).
@@ -21,41 +21,42 @@ init(_Transport, Req, _Opts) ->
     {upgrade, protocol, sheep_http, Req, []}.
 
 
-% Standart error handler for sheep_response
-error_handler(_Request, 400, Response) ->
+%% Standart error handler for sheep_response
+error_handler(_Request, 400, #{body := Error} = Response) ->
     Data = {[
-        {<<"error">>, Response#sheep_response.body}
+        {<<"error">>, Error}
     ]},
-    Response#sheep_response{body=Data}.
+    Response#{body => Data}.
 
-% --- Generic error handler ---
+%% --- Generic error handler ---
 
-% handling of custom error
+%% handling of custom error
 error_handler(_Request, {error, {custom_error, Message}}) ->
     Data = {[
         {<<"error">>, Message}
     ]},
-    #sheep_response{status_code=400, body=Data};
-% handling of exception
+    sheep_http:response(#{status_code => 400, body => Data});
+
+%% handling of exception
 error_handler(_Request, {throw, test_exception}) ->
     Data = {[
         {<<"error">>, <<"Test exception">>}
     ]},
-    #sheep_response{status_code=400, body=Data}.
+    sheep_http:response(#{status_code => 400, body => Data}).
 
-read(#sheep_request{bindings=#{<<"user_id">> := <<"error_id">>}}, _State)->
-    {error, #sheep_response{status_code=400, body= <<"Error message">>}};
+read(#{bindings := #{<<"user_id">> := <<"error_id">>}}, _State)->
+    {error, sheep_http:response(#{status_code => 400, body => <<"Error message">>})};
 
-read(#sheep_request{bindings=#{<<"user_id">> := <<"custom_error_id">>}}, _State)->
+read(#{bindings := #{<<"user_id">> := <<"custom_error_id">>}}, _State)->
     {error, {custom_error, <<"Error message">>}};
 
-read(#sheep_request{bindings=#{<<"user_id">> := <<"throw_id">>}}, _State)->
+read(#{bindings := #{<<"user_id">> := <<"throw_id">>}}, _State)->
     throw(test_exception);
 
-read(#sheep_request{bindings=#{<<"user_id">> := _}}, _State)->
-    {ok, #sheep_response{status_code=404, body= <<"Not found">>}};
+read(#{bindings := #{<<"user_id">> := _}}, _State)->
+    {ok, sheep_http:response(#{status_code => 404, body => <<"Not found">>})};
 
-read(#sheep_request{}, _State)->
+read(_Request, _State)->
     Data = [
             {[
               {<<"id">>, <<"1">>},
@@ -66,4 +67,4 @@ read(#sheep_request{}, _State)->
               {<<"name">>, <<"Username 2">>}
              ]}
            ],
-    {ok, #sheep_response{status_code=200, body=Data}}.
+    {ok, sheep_http:response(#{status_code => 200, body => Data})}.

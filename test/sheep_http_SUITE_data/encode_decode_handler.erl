@@ -15,12 +15,12 @@
 init(_Transport, Req, _Opts) ->
     {upgrade, protocol, sheep_http, Req, []}.
 
--spec sheep_init(#sheep_request{}, any()) -> {list(), any()}.
+-spec sheep_init(map(), any()) -> {list(), any()}.
 sheep_init(_Request, _Opts) ->
     {[
         {decode_spec, [
             {<<"application/json">>,
-                fun(Data) -> 
+                fun(Data) ->
                     {L} = jiffy:decode(Data),
                     M = maps:from_list(L),
                     M#{custom_encoder => ok}
@@ -42,6 +42,5 @@ sheep_init(_Request, _Opts) ->
     []}.
 
 % Get collection
-read(Request, _State)->
-    Data = Request#sheep_request.body,
-    {ok, #sheep_response{status_code=200, body=Data}}.
+read(#{body := Data}, _State)->
+    {ok, sheep_http:response(#{status_code => 200, body => Data})}.
