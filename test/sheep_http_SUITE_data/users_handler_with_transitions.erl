@@ -22,7 +22,7 @@
 init(_Transport, Req, _Opts) ->
     {upgrade, protocol, sheep_http, Req, []}.
 
--spec sheep_init(#sheep_request{}, any()) -> {list(), any()}.
+-spec sheep_init(map(), any()) -> {list(), any()}.
 sheep_init(_Request, _Opts) ->
     Options = [
         {
@@ -63,4 +63,4 @@ read(_Request, _State)->
             {<<"name">>, <<"Username 2">>}
         ]}
     ],
-    {ok, #sheep_response{status_code=200, body=Data}}.
+    {ok, sheep_http:response(#{status_code => 200, body => Data})}.

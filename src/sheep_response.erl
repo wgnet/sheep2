@@ -7,6 +7,9 @@
 new_204() ->
     new(204, <<>>).
 
+new_404() ->
+    new(404, <<"Not found">>).
+
 new_405() ->
     new(405, <<"Method not allowed">>).
 
@@ -20,4 +23,4 @@ new_501() ->
     new(501, <<"Not implemented">>).
 
 new(StatusCode, Message) ->
-    #sheep_response{status_code=StatusCode, body=Message}.
+    sheep_http:response(#{status_code => StatusCode, body => Message}).

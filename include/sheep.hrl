@@ -41,18 +41,3 @@
             Data
         end}
 ]).
-
--record(sheep_request, {
-    meta = [],
-    method = undefined,
-    headers = [],
-    bindings = {[]},
-    query = {[]},
-    body = #{}
-}).
-
--record(sheep_response, {
-    status_code,
-    headers = [],
-    body = #{}
-}).

@@ -15,7 +15,7 @@
 init(_Transport, Req, _Opts) ->
     {upgrade, protocol, sheep_http, Req, []}.
 
--spec sheep_init(#sheep_request{}, any()) -> {list(), any()}.
+-spec sheep_init(map(), any()) -> {list(), any()}.
 sheep_init(_Request, _Opts) ->
     {[
         {decode_spec, [
@@ -41,16 +41,16 @@ sheep_init(_Request, _Opts) ->
     ],
     []}.
 
-read(#sheep_request{bindings = #{<<"kind">> := <<"empty">>}} = _Request, _State) ->
-    {ok, #sheep_response{body= <<>>}};
+read(#{bindings := #{<<"kind">> := <<"empty">>}} = _Request, _State) ->
+    {ok, sheep_http:response(#{})};
 
-read(#sheep_request{bindings = #{<<"kind">> := <<"empty_404">>}} = _Request, _State) ->
-    {ok, #sheep_response{status_code=404, body= <<>>}};
+read(#{bindings := #{<<"kind">> := <<"empty_404">>}} = _Request, _State) ->
+    {ok, sheep_http:response(#{status_code => 404})};
 
-read(#sheep_request{bindings = #{<<"kind">> := <<"undefined">>}} = _Request, _State) ->
-    {ok, #sheep_response{body= undefined}};
+read(#{bindings := #{<<"kind">> := <<"undefined">>}} = _Request, _State) ->
+    {ok, sheep_http:response(#{})};
+
 
 % Get collection
-read(Request, _State) ->
-    Data = Request#sheep_request.body,
-    {ok, #sheep_response{status_code=200, body=Data}}.
+read(#{body := Data}, _State)->
+    {ok, sheep_http:response(#{status_code => 200, body => Data})}.
