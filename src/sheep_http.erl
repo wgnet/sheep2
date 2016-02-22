@@ -85,7 +85,7 @@ call_handlers(Request, Module, [HandlerFun|Handlers], State) ->
     end.
 
 
--spec handle(map(), module(), list(), list(), any()) -> map().
+-spec handle(sheep_request(), module(), list(), list(), any()) -> sheep_response().
 handle(#{method := Method} = Request, HandlerModule, _HandlerOpts, SheepOpts, State) ->
     MethodsSpec = proplists:get_value(methods_spec, SheepOpts, ?PROTOCOL_METHODS_SPEC),
     FindHandlers = lists:keyfind(Method, 1, MethodsSpec),
@@ -138,12 +138,12 @@ handle_error(Handler, Args) ->
     end.
 
 
--spec error_handler(map(), integer(), map()) -> map().
+-spec error_handler(sheep_request(), integer(), map()) -> sheep_response().
 error_handler(_Request, _StatusCode, Response) ->
     Response.
 
 
--spec error_handler(map(), {atom(), any()}) -> map().
+-spec error_handler(sheep_request(), {atom(), any()}) -> sheep_response().
 error_handler(_Request, Exception) ->
     error_logger:error_report([
         {exception, Exception},
@@ -152,7 +152,7 @@ error_handler(_Request, Exception) ->
     sheep_response:new_500().
 
 
--spec decode_payload(cowboy_req:req(), map(), list()) -> map().
+-spec decode_payload(cowboy_req:req(), sheep_request(), list()) -> sheep_request().
 decode_payload(CowReq, Request, SheepOpts) ->
     {RawContentType, _} = cowboy_req:header(<<"content-type">>, CowReq, ?CT_APP_JSON),
 
@@ -199,7 +199,7 @@ decode_payload(CowReq, Request, SheepOpts) ->
     end.
 
 
--spec encode_payload(cowboy_req:req(), map(), list()) -> map().
+-spec encode_payload(cowboy_req:req(), sheep_request(), list()) -> sheep_request().
 encode_payload(CowReq, #{body := Data, headers := Headers} = Response, SheepOpts) ->
     {AcceptContentType, _} = cowboy_req:header(<<"accept">>, CowReq, ?CT_APP_JSON),
     EncodeSpec = proplists:get_value(encode_spec, SheepOpts, ?PROTOCOL_ENCODE_SPEC),
@@ -207,8 +207,7 @@ encode_payload(CowReq, #{body := Data, headers := Headers} = Response, SheepOpts
     case proplists:get_value(AcceptContentType, EncodeSpec) of
         undefined ->
             % TODO: check should be before performing request
-            sheep_response:new(
-                406, <<"Not acceptable">>);
+            sheep_response:new(406, <<"Not acceptable">>);
         Fn ->
             try
                 Response#{
@@ -231,11 +230,11 @@ encode_payload(CowReq, #{body := Data, headers := Headers} = Response, SheepOpts
     end.
 
 
--spec get_header(binary(), map()) -> binary().
+-spec get_header(binary(), sheep_request()) -> binary().
 get_header(Name, Request) ->
     get_header(Name, Request, undefined).
 
--spec get_header(binary(), map(), any()) -> binary().
+-spec get_header(binary(), sheep_request(), any()) -> binary().
 get_header(Name, #{headers := Headers}, Default) ->
     case lists:keyfind(Name, 1, Headers) of
         {_, Value} -> Value;
@@ -255,7 +254,7 @@ to_map(List) ->
                 end, List)).
 
 
--spec request(map()) -> map().
+-spec request(map()) -> sheep_request().
 request(Data) ->
     maps:merge(#{
                   meta => [],
@@ -267,7 +266,7 @@ request(Data) ->
                 }, Data).
 
 
--spec response(map()) -> map().
+-spec response(map()) -> sheep_response().
 response(Data) ->
     maps:merge(#{
                   status_code => 204,

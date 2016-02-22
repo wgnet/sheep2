@@ -1,8 +1,21 @@
 % Types
 
--type(json_obj() :: any()).
--type(mime_type() :: binary()).
--type(http_code() :: integer()).
+-type http_code() :: integer().
+
+-type sheep_request() :: #{
+                     meta => list(),
+                     method => binary(),
+                     headers => list(),
+                     query => map(),
+                     bindings => map(),
+                     body => map() | binary()
+                    }.
+
+-type sheep_response() :: #{
+                      status_code => http_code(),
+                      headers => list(),
+                      body => map() | binary()
+                     }.
 
 
 -define(CT_APP_JSON, <<"application/json">>).
