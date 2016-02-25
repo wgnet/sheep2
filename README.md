@@ -39,7 +39,7 @@ Second, the **sheep_init/2** callback will be called. In it you can set options
 and state.
 
 ```erlang
--spec sheep_init(#sheep_request{}, any()) -> {list(), any()}.
+-spec sheep_init(sheep_request(), any()) -> {list(), any()}.
 sheep_init(Request, Opts) ->
     Options = [],
     State = [],
@@ -130,19 +130,19 @@ There are two kinds of error handlers: with arity 2 and 3.
 
 ### error_handler/3
 
-Called when handler returns atom **error** and record **sheep_response**
+Called when handler returns atom **error** and map **sheep_response**
 
 
-For example, if handler returns following tuple
+For example, if handler returns following map
 
 ```erlang
-{error, #sheep_response{status_code=400, body= <<"Message">>}};
+{error, #{status_code=400, body= <<"Message">>}};
 ```
 
 Following pattern matching may be used in error handler:
 
 ```erlang
-error_handler(#sheep_request{}, 400, #sheep_response{body= <<"Message">>}) ->
+error_handler(#{}, 400, #{body= <<"Message">>}) ->
 ```
 
 
@@ -160,7 +160,7 @@ For example, if handler returns following tuple
 Following pattern matching may be used in error handler:
 
 ```erlang
-error_handler(#sheep_request{}, {error, {my_error, []}}) ->
+error_handler(#{}, {error, {my_error, []}}) ->
 ```
 
 For case when handler raise exception
@@ -172,7 +172,7 @@ throw(my_exception)
 You can use following pattern matching:
 
 ```erlang
-error_handler(#sheep_request{}, {throw, my_exception}) ->
+error_handler(#{}, {throw, my_exception}) ->
 ```
 
 ## Handlers
@@ -212,8 +212,7 @@ authorization(State, Request) ->
     case is_authorized(Token) of
         false ->
             % for breaking chains of callbacks and call error_handler
-            {error, #sheep_response{
-                        status_code=401, body= <<"Invalid token">>}};
+            {error, sheep_response:new(401, <<"Invalid token">>)};
         true ->
             % for to continue processing of request
             {noreply, State#state{counter = State#state.counter + 1}}
@@ -223,19 +222,18 @@ validation(State, Request) ->
     % code for validate
     case Result of
         error ->
-            {error, #sheep_response{
-                        status_code=400, body= <<"Validation failed">>}};
+            {error, sheep_response:new(400, <<"Validation failed">>)};
         ok ->
             {noreply, State#state{counter = State#state.counter + 1}}
     end.
 
 % Get specific item of user
-read(_State, #sheep_request{bindings=[{user_id, ID}]})->
+read(_State, #{bindings=[{user_id, ID}]})->
     Data = {[
         {<<"id">>, ID},
         {<<"name">>, <<"Username 1">>}
     ]},
-    {ok, #sheep_response{status_code=200, body=Body}};
+    {ok, sheep_response:new(200, Body)};
 
 % Get collection
 read(_State, _Request)->
@@ -249,7 +247,7 @@ read(_State, _Request)->
             {<<"name">>, <<"Username 2">>}
         ]}
     ],
-    {ok, #sheep_response{status_code=200, body=Data}}.
+    {ok, sheep_response:new(200, Data)}.
 
 % Create new item
 create(_State, _Request)->
@@ -257,7 +255,7 @@ create(_State, _Request)->
         {<<"id">>, <<"100">>},
         {<<"name">>, <<"New username">>}
     ]},
-    {ok, #sheep_response{status_code=201, body=Data}}.
+    {ok, sheep_response:new(201, Data)}.
 ```
 
 > If all callbacks in chain are returned "noreply" then will be returned
