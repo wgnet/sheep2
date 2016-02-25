@@ -136,13 +136,13 @@ Called when handler returns atom **error** and map **sheep_response**
 For example, if handler returns following map
 
 ```erlang
-{error, #{status_code=400, body= <<"Message">>}};
+{error, #{status_code:=400, body:= <<"Message">>}};
 ```
 
 Following pattern matching may be used in error handler:
 
 ```erlang
-error_handler(#{}, 400, #{body= <<"Message">>}) ->
+error_handler(#{}, 400, #{body:= <<"Message">>}) ->
 ```
 
 
@@ -228,7 +228,7 @@ validation(State, Request) ->
     end.
 
 % Get specific item of user
-read(_State, #{bindings=[{user_id, ID}]})->
+read(_State, #{bindings:=[{user_id, ID}]})->
     Data = {[
         {<<"id">>, ID},
         {<<"name">>, <<"Username 1">>}
