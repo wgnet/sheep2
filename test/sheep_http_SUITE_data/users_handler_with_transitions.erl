@@ -10,6 +10,7 @@
     authorization/2,
     validation/2,
     paged/2,
+    request_mutation/2,
     read/2
 ]).
 
@@ -28,7 +29,7 @@ sheep_init(_Request, _Opts) ->
         {
             methods_spec, [
                 {<<"POST">>, [authorization, validation, create]},
-                {<<"GET">>, [authorization, paged, read]},
+                {<<"GET">>, [authorization, paged, request_mutation, read]},
                 {<<"PUT">>, []},
                 {<<"DELETE">>, []}
             ]
@@ -51,8 +52,11 @@ validation(_Request, State) ->
 paged(_Request, State) ->
     {noreply, State#state{counter = State#state.counter + 1}}.
 
+request_mutation(Request, State) ->
+    {noreply, Request#{key => value}, State}.
+
 % Get collection
-read(_Request, _State)->
+read(#{key := value} = _Request, _State)->
     Data = [
         {[
             {<<"id">>, <<"1">>},

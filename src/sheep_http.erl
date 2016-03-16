@@ -77,6 +77,8 @@ call_handlers(Request, Module, [HandlerFun|Handlers], State) ->
     case Fun(Request, State) of
         {noreply, NewState} ->
             call_handlers(Request, Module, Handlers, NewState);
+        {noreply, NewRequest, NewState} ->
+            call_handlers(NewRequest, Module, Handlers, NewState);
         Result ->
             Result
     end.
