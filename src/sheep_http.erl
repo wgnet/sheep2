@@ -25,32 +25,29 @@ upgrade(CowReq, Env, Handler, HandlerOpts) ->
     {Headers, _} = cowboy_req:headers(CowReq),
 
     Request = request(#{
-                         method => Method,
-                         headers => Headers,
-                         bindings => to_map(Bindings),
-                         query => to_map(Query)
-                       }),
+        method => Method,
+        headers => Headers,
+        bindings => to_map(Bindings),
+        'query' => to_map(Query)
+    }),
 
-    {SheepOpts, State} =
-        case
+    {SheepOpts, Response} = try
+        {Opts, State} = case
             erlang:function_exported(Handler, sheep_init, 2)
         of
             true ->
                 Handler:sheep_init(Request, HandlerOpts);
             false -> {[], []}
         end,
-
-    Response =
-        try
-            UpdRequest = decode_payload(CowReq, Request, SheepOpts),
-            handle(UpdRequest, Handler, HandlerOpts, SheepOpts, State)
-        catch
-            throw:{sheep, #{status_code := StatusCode} = ErrorResponse} ->
-                handle_error(
-                  Handler, [Request, StatusCode, ErrorResponse]);
-            Class:Reason ->
-                handle_error(Handler, [Request, {Class, Reason}])
-        end,
+        UpdRequest = decode_payload(CowReq, Request, Opts),
+        {Opts, handle(UpdRequest, Handler, HandlerOpts, Opts, State)}
+    catch
+        throw:{sheep, #{status_code := StatusCode} = ErrorResponse} ->
+            {[], handle_error(
+              Handler, [Request, StatusCode, ErrorResponse])};
+        Class:Reason ->
+            {[], handle_error(Handler, [Request, {Class, Reason}])}
+    end,
 
     #{status_code := ResponseCode, headers := ResponseHeaders, body := Body} =
         encode_payload(CowReq, Response, SheepOpts),
