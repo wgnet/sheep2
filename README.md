@@ -160,7 +160,7 @@ For example, if handler returns following tuple
 Following pattern matching may be used in error handler:
 
 ```erlang
-error_handler(#{}, {error, {my_error, []}}) ->
+error_handler(#{}, {my_error, []}) ->
 ```
 
 For case when handler raise exception

@@ -31,7 +31,7 @@ error_handler(_Request, 400, #{body := Error} = Response) ->
 %% --- Generic error handler ---
 
 %% handling of custom error
-error_handler(_Request, {error, {custom_error, Message}}) ->
+error_handler(_Request, {custom_error, Message}) ->
     Data = {[
         {<<"error">>, Message}
     ]},

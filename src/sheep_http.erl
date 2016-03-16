@@ -108,7 +108,7 @@ handle(#{method := Method} = Request, HandlerModule, _HandlerOpts, SheepOpts, St
                 _ ->
                     handle_error(
                         HandlerModule,
-                        [Request, {error, ErrorResponse}])
+                        [Request, ErrorResponse])
             end;
         _ ->
             handle_error(
