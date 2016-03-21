@@ -7,7 +7,8 @@
 %% Error handlers
 -export([
     error_handler/3,
-    error_handler/2
+    error_handler/2,
+    exception_handler/2
 ]).
 
 %% Request handlers
@@ -35,10 +36,10 @@ error_handler(_Request, {custom_error, Message}) ->
     Data = {[
         {<<"error">>, Message}
     ]},
-    sheep_http:response(#{status_code => 400, body => Data});
+    sheep_http:response(#{status_code => 400, body => Data}).
 
 %% handling of exception
-error_handler(_Request, {throw, test_exception}) ->
+exception_handler(_Request, {throw, test_exception}) ->
     Data = {[
         {<<"error">>, <<"Test exception">>}
     ]},

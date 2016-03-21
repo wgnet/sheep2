@@ -56,7 +56,7 @@ request_mutation(Request, State) ->
     {noreply, Request#{key => value}, State}.
 
 % Get collection
-read(#{key := value} = _Request, _State)->
+read(#{key := value} = _Request, #state{} = State)->
     Data = [
         {[
             {<<"id">>, <<"1">>},

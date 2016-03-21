@@ -46,7 +46,7 @@ upgrade(CowReq, Env, Handler, HandlerOpts) ->
             {[], handle_error(
               Handler, [Request, StatusCode, ErrorResponse])};
         Class:Reason ->
-            {[], handle_error(Handler, [Request, {Class, Reason}])}
+            {[], handle_exception(Handler, [Request, {Class, Reason}])}
     end,
 
     #{status_code := ResponseCode, headers := ResponseHeaders, body := Body} =
@@ -109,19 +109,26 @@ handle(#{method := Method} = Request, HandlerModule, _HandlerOpts, SheepOpts, St
                         HandlerModule,
                         [Request, ErrorResponse])
             end;
-        _ ->
+        InvalidResponse ->
             handle_error(
                 HandlerModule,
-                [Request, {error, unknown_response}])
+                [Request, {invalid, InvalidResponse}])
     end.
 
 
 handle_error(Handler, Args) ->
-    Fn = erlang:function_exported(Handler, error_handler, length(Args)),
-    case Fn of
+    handle_error(Handler, error_handler, Args).
+
+handle_exception(Handler, Args) ->
+    handle_error(Handler, exception_handler, Args).
+
+handle_error(Handler, Fn, Args) ->
+    case
+        erlang:function_exported(Handler, Fn, length(Args))
+    of
         true ->
             try
-                apply(Handler, error_handler, Args)
+                apply(Handler, Fn, Args)
             catch
                 Class:Reason ->
                     error_logger:error_report([
@@ -130,10 +137,10 @@ handle_error(Handler, Args) ->
                         {exception, {Class, Reason}},
                         {stacktrace, erlang:get_stacktrace()}
                     ]),
-                    apply(?MODULE, error_handler, Args)
+                    apply(?MODULE, Fn, Args)
             end;
         false ->
-            apply(?MODULE, error_handler, Args)
+            apply(?MODULE, Fn, Args)
     end.
 
 
@@ -141,9 +148,16 @@ handle_error(Handler, Args) ->
 error_handler(_Request, _StatusCode, Response) ->
     Response.
 
+error_handler(_Request, Error) ->
+    error_logger:error_report([
+        {error, Error},
+        {stacktrace, erlang:get_stacktrace()}
+    ]),
+    sheep_response:new_500().
+
 
 -spec error_handler(sheep_request(), {atom(), any()}) -> sheep_response().
-error_handler(_Request, Exception) ->
+exception_handler(_Request, Exception) ->
     error_logger:error_report([
         {exception, Exception},
         {stacktrace, erlang:get_stacktrace()}

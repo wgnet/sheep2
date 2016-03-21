@@ -125,7 +125,8 @@ $remote_addr $host - "$request" $status $http_user_agent
 
 ## Error handling
 
-There are two kinds of error handlers: with arity 2 and 3.
+There are two kinds of error handlers: with arity 2 and 3. And also special handler
+for exceptions.
 
 
 ### error_handler/3
@@ -148,8 +149,7 @@ error_handler(#{}, 400, #{body:= <<"Message">>}) ->
 
 ### error_handler/2
 
-This is more general error handler that will called when exception occurs or
-handler return custom error.
+This is more general error handler that will called when handler return custom error.
 
 For example, if handler returns following tuple
 
@@ -163,6 +163,10 @@ Following pattern matching may be used in error handler:
 error_handler(#{}, {my_error, []}) ->
 ```
 
+### exception_handler/2
+
+This is a special kind of error handler that called when occurs exceptions
+
 For case when handler raise exception
 
 ```erlang
@@ -172,7 +176,7 @@ throw(my_exception)
 You can use following pattern matching:
 
 ```erlang
-error_handler(#{}, {throw, my_exception}) ->
+exception_handler(#{}, {throw, my_exception}) ->
 ```
 
 ## Handlers
