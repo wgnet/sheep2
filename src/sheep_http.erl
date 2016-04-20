@@ -10,6 +10,7 @@
     get_header/3,
     error_handler/2,
     error_handler/3,
+    exception_handler/2,
     request/1,
     response/1
 ]).
