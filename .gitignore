@@ -1,10 +1,4 @@
-ebin
-logs
-deps
-.eunit
-.rebar
-*.cache
-*.log
-*.beam
 rebar.lock
 _build/
+.idea
+*.iml

@@ -1,13 +1,22 @@
-.PHONY: test
-
-REBAR=./rebar3
-
 compile:
-	${REBAR} compile
+	rebar3 compile
 
-test:
-	${REBAR} ct
-	${REBAR} cover
+eunit:
+	rebar3 eunit
+
+ct:
+	rebar3 ct
+
+tests: eunit ct
+
+console:
+	erl -pa _build/default/lib/*/ebin
+
+d:
+	rebar3 dialyzer
 
 clean:
-	${REBAR} clean
+	rebar3 clean
+
+clean-all:
+	rm -rf _build
