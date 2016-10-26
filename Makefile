@@ -1,13 +1,10 @@
 compile:
 	rebar3 compile
 
-eunit:
-	rebar3 eunit
-
 ct:
 	rebar3 ct
 
-tests: eunit ct
+tests: ct
 
 console:
 	erl -pa _build/default/lib/*/ebin

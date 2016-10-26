@@ -22,7 +22,7 @@ init(_Transport, Req, _Opts) ->
     {upgrade, protocol, sheep_http, Req, []}.
 
 
-%% Standart error handler for sheep_response
+%% Standard error handler for sheep_response
 error_handler(_Request, 400, #{body := Error} = Response) ->
     Data = {[
         {<<"error">>, Error}

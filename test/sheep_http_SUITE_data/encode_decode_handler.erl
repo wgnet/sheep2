@@ -21,8 +21,7 @@ sheep_init(_Request, _Opts) ->
         {decode_spec, [
             {<<"application/json">>,
                 fun(Data) ->
-                    {L} = jiffy:decode(Data),
-                    M = maps:from_list(L),
+                    M = jiffy:decode(Data, [return_maps]),
                     M#{custom_encoder => ok}
                 end}
         ]},
@@ -31,8 +30,7 @@ sheep_init(_Request, _Opts) ->
                 fun(Data) ->
                     case Data of
                         _ when is_map(Data) ->
-                            jiffy:encode(
-                                {maps:to_list(Data#{custom_decoder => ok})});
+                            jiffy:encode(Data#{custom_decoder => ok});
                         _ ->
                             jiffy:encode(Data)
                     end
