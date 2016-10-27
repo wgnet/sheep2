@@ -1,15 +1,7 @@
 -module(sheep_http).
 -behaviour(cowboy_sub_protocol).
 
--export([upgrade/4]).
-
--export([
-    get_header/2, get_header/3,
-    error_handler/2, error_handler/3,
-    exception_handler/2,
-    request/1,
-    response/1
-]).
+-export([upgrade/4, get_header/2, get_header/3, response/1]).
 
 -include("sheep.hrl").
 
@@ -21,18 +13,15 @@
 
 -spec upgrade(cowboy_req:req(), cowboy_middleware:env(), module(), term()) ->
                      {ok, cowboy_req:req(), cowboy_middleware:env()}.
-upgrade(CowReq, Env, Handler, HandlerOpts) ->
-    {Method, _} = cowboy_req:method(CowReq),
-    {Bindings, _} = cowboy_req:bindings(CowReq),
-    {Query, _} = cowboy_req:qs_vals(CowReq),
-    {Headers, _} = cowboy_req:headers(CowReq),
-
-    Request = request(#{
-        method => Method,
-        headers => Headers,
-        bindings => to_map(Bindings),
-        query => to_map(Query)
-    }),
+upgrade(CowRequest, Env, Handler, HandlerOpts) ->
+    Request = #{
+        meta => [],
+        method => element(1, cowboy_req:method(CowRequest)),
+        headers => element(1, cowboy_req:headers(CowRequest)),
+        bindings => to_map(element(1, cowboy_req:bindings(CowRequest))),
+        query => to_map(element(1, cowboy_req:qs_vals(CowRequest))),
+        body => #{}
+    },
 
     {SheepOpts, Response} =
         try
@@ -41,7 +30,7 @@ upgrade(CowReq, Env, Handler, HandlerOpts) ->
                     true -> Handler:sheep_init(Request, HandlerOpts);
                     false -> {#{}, []}
                 end,
-            Request2 = decode_payload(CowReq, Request, Options),
+            Request2 = decode_payload(CowRequest, Request, Options),
             {Options, handle(Request2, Handler, Options, State)}
         catch
             throw:{sheep, #{status_code := StatusCode} = ErrorResponse} ->
@@ -56,7 +45,7 @@ upgrade(CowReq, Env, Handler, HandlerOpts) ->
         body := Body
     } = encode_payload(Request, Response, SheepOpts),
 
-    {ok, CowResponse} = cowboy_req:reply(ResponseCode, ResponseHeaders, Body, CowReq),
+    {ok, CowResponse} = cowboy_req:reply(ResponseCode, ResponseHeaders, Body, CowRequest),
     log_response(CowResponse, ResponseCode),
     {ok, CowResponse, Env}.
 
@@ -73,18 +62,6 @@ get_header(Name, #{headers := Headers}, Default) ->
     end.
 
 
--spec request(map()) -> sheep_request().
-request(Data) ->
-    maps:merge(#{
-        meta => [],
-        method => undefined,
-        headers => [],
-        bindings => {[]},
-        query => {[]},
-        body => #{}
-    }, Data).
-
-
 -spec response(map()) -> sheep_response().
 response(Data) ->
     maps:merge(#{
@@ -92,29 +69,6 @@ response(Data) ->
         headers => [],
         body => #{}
     }, Data).
-
-
--spec error_handler(sheep_request(), integer(), map()) -> sheep_response().
-error_handler(_Request, _StatusCode, Response) ->
-    Response.
-
-
--spec error_handler(sheep_request(), term()) -> sheep_response().
-error_handler(_Request, Error) ->
-    error_logger:error_report([
-        {error, Error},
-        {stacktrace, erlang:get_stacktrace()}
-    ]),
-    sheep_response:new_500().
-
-
--spec exception_handler(sheep_request(), term()) -> sheep_response().
-exception_handler(_Request, Exception) ->
-    error_logger:error_report([
-        {exception, Exception},
-        {stacktrace, erlang:get_stacktrace()}
-    ]),
-    sheep_response:new_500().
 
 
 %%% Inner functions
@@ -184,7 +138,6 @@ encode_payload(Request, #{body := Data, headers := Headers} = Response, SheepOpt
                     sheep_response:new(500, E)
             end;
         error ->
-            %% TODO: check should be before performing request
             sheep_response:new(406, <<"Not acceptable">>)
     end.
 
@@ -245,16 +198,27 @@ handle_error(Handler, Fn, Args) ->
                 apply(Handler, Fn, Args)
             catch
                 Class:Reason ->
+                    ST = erlang:get_stacktrace(),
                     error_logger:error_report([
                         {error, invalid_handler},
                         {handler, Handler},
                         {exception, {Class, Reason}},
-                        {stacktrace, erlang:get_stacktrace()}
+                        {stacktrace, ST}
                     ]),
-                    apply(?MODULE, Fn, Args)
+                    sheep_response:new_500()
             end;
         false ->
-            apply(?MODULE, Fn, Args)
+            case {Fn, Args} of
+                {error_handler, [_Request, _StatusCode, Response]} -> Response;
+                {error_handler, [_Request, Error]} ->
+                    ST = erlang:get_stacktrace(),
+                    error_logger:error_report([{error, Error}, {stacktrace, ST}]),
+                    sheep_response:new_500();
+                {exception_handler, [_Request, Exception]} ->
+                    ST = erlang:get_stacktrace(),
+                    error_logger:error_report([{exception, Exception}, {stacktrace, ST}]),
+                    sheep_response:new_500()
+            end
     end.
 
 
