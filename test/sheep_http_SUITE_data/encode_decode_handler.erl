@@ -1,14 +1,7 @@
 -module(encode_decode_handler).
+-behaviour(sheep_http).
 
--export([
-    init/3
-]).
-
-% Handlers
--export([
-    read/2,
-    sheep_init/2
-]).
+-export([init/3, read/2, sheep_init/2 ]).
 
 -include("sheep.hrl").
 

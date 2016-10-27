@@ -5,6 +5,23 @@
 
 -include("sheep.hrl").
 
+-callback sheep_init(Request :: sheep_request(), HandlerOpts :: term()) ->
+    {Options :: map(), State :: term()}.
+-callback create(Request :: sheep_request(), State :: term()) ->
+    {ok, Response :: sheep_response()} | {error, Response :: sheep_response}.
+-callback read(Request :: sheep_request(), State :: term()) ->
+    {ok, Response :: sheep_response()} | {error, Response :: sheep_response}.
+-callback update(Request :: sheep_request(), State :: term()) ->
+    {ok, Response :: sheep_response()} | {error, Response :: sheep_response}.
+-callback delete(Request :: sheep_request(), State :: term()) ->
+    {ok, Response :: sheep_response()} | {error, Response :: sheep_response}.
+-callback error_handler(Request :: sheep_request(), Error :: term()) -> sheep_response().
+-callback exception_handler(Request :: sheep_request(), Error :: term()) -> sheep_response().
+
+-optional_callbacks([sheep_init/2,
+    create/2, read/2, update/2, delete/2,
+    error_handler/2, exception_handler/2]).
+
 -define(MIME_JSON, <<"application/json">>).
 -define(MIME_MSGPACK, <<"application/x-msgpack">>).
 

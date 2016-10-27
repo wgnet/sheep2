@@ -1,4 +1,5 @@
 -module(users_handler_with_transitions).
+-behaviour(sheep_http).
 
 -export([
     init/3,

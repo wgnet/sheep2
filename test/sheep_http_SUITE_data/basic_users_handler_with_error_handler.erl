@@ -1,4 +1,5 @@
 -module(basic_users_handler_with_error_handler).
+-behaviour(sheep_http).
 
 -export([
     init/3,

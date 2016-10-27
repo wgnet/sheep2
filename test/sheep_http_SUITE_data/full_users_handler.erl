@@ -1,4 +1,5 @@
 -module(full_users_handler).
+-behaviour(sheep_http).
 
 -export([init/3, sheep_init/2, my_read/2 ]).
 
