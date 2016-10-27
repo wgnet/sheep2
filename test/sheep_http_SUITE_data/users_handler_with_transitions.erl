@@ -5,15 +5,18 @@
     init/3,
     sheep_init/2,
     authorization/2,
-    validation/2,
     paging/2,
-    request_mutation/2,
-    read/2
+    validation/2,
+    read/2,
+    create/2
 ]).
 
 -include("sheep.hrl").
 
--record(state, {counter = 0}).
+-record(state, {
+    steps = [],
+    user_id
+}).
 
 
 init(_Transport, Req, _Opts) ->
@@ -26,7 +29,7 @@ sheep_init(_Request, _Opts) ->
         #{
             methods_spec =>
             #{
-                <<"GET">> => [authorization, paging, request_mutation, read],
+                <<"GET">> => [authorization, paging, read],
                 <<"POST">> => [authorization, validation, create]
             }
         },
@@ -34,34 +37,42 @@ sheep_init(_Request, _Opts) ->
     {Options, State}.
 
 
-authorization(Request, State) ->
-    _Token = sheep_http:get_header(<<"token">>, Request),
-    {noreply, State#state{counter = State#state.counter + 1}}.
+authorization(Request, #state{steps = Steps} = State) ->
+    Token = sheep_http:get_header(<<"x-auth-token">>, Request),
+    case Token of
+        <<"cft6GLEhLANgstU8sZdL">> ->
+            {noreply, State#state{steps = [<<"auth">> | Steps]}};
+        _ ->
+            {error, sheep_response:new(401, <<"Auth error">>)}
+    end.
 
 
-validation(_Request, State) ->
-    {noreply, State#state{counter = State#state.counter + 1}}.
+paging(_Request, #state{steps = Steps} = State) ->
+    {noreply, State#state{steps = [<<"paging">> | Steps]}}.
 
 
-paging(_Request, State) ->
-    {noreply, State#state{counter = State#state.counter + 1}}.
-
-
-request_mutation(Request, State) ->
-    {noreply, Request#{key => value}, State}.
+validation(#{body := Body}, #state{steps = Steps} = State) ->
+    case Body of
+        #{<<"user_id">> := UserID} ->
+            {noreply, State#state{steps = [<<"validation">> | Steps], user_id = UserID}};
+        _ -> {error, sheep_response:new(400, #{<<"error">> => <<"User ID not provided">>})}
+    end.
 
 
 -spec read(sheep_request(), any()) -> {ok, sheep_response()}.
-read(#{key := value} = _Request, #state{counter = Counter})->
-    Data = [
-        #{
-            <<"id">> => <<"1">>,
-            <<"name">> => <<"Username 1">>,
-            <<"counter">> => Counter
-        },
-        #{
-            <<"id">> => <<"2">>,
-            <<"name">> => <<"Username 2">>
-        }
-    ],
-    {ok, sheep_http:response(#{status_code => 200, body => Data})}.
+read(_Request, #state{steps = Steps}) ->
+    Body = #{
+        <<"reply_from">> => <<"read">>,
+        <<"steps">> => Steps
+    },
+    {ok, sheep_http:response(#{status_code => 200, body => Body})}.
+
+
+-spec create(sheep_request(), any()) -> {ok, sheep_response()}.
+create(_Request, #state{steps = Steps, user_id = UserID}) ->
+    Body = #{
+        <<"reply_from">> => <<"create">>,
+        <<"steps">> => Steps,
+        <<"user_id">> => UserID
+    },
+    {ok, sheep_http:response(#{status_code => 200, body => Body})}.

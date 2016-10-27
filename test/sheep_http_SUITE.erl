@@ -16,8 +16,10 @@
 
 all() ->
     [
+        get_test,
+        post_put_delete_test,
         basic_users_handler_test,
-        basic_user_handler_with_error_handler_test,
+        custom_users_handler_test,
         users_handler_with_transitions_test,
         encode_decode_handler_test,
         status_204_test
@@ -28,10 +30,8 @@ init_dispatch() ->
         {"localhost", [
             {"/simple[/:param]", simple_handler, []},
             {"/basic/users[/:user_id]", basic_users_handler, []},
-            {"/basic_with_error_handler/users[/:user_id]", basic_users_handler_with_error_handler, []},
+            {"/custom/users[/:user_id]", custom_users_handler, []},
             {"/transitions/users[/:user_id]", users_handler_with_transitions, []},
-            {"/full/users[/:user_id]", full_users_handler, []},
-            {"/customers[/:customer_id]/orders[/:order_id]", orders_handler, []},
             {"/encode_decode[/:kind]", encode_decode_handler, []}
         ]}
     ]).
@@ -61,36 +61,95 @@ build_url(Path, Config) ->
     <<"http://localhost:", PortBin/binary, Path/binary >>.
 
 
-basic_users_handler_test(Config) ->
-    URL1 = build_url(<<"/basic/users">>, Config),
-    {ok, 200, _, _} = hackney:request(get, URL1, ?HEADERS),
-
-    URL2 = build_url(<<"/basic/users/1">>, Config),
-    {ok, 404, _, _} = hackney:request(get, URL2, ?HEADERS),
+get_test(Config) ->
+    F = fun(URL) ->
+        {ok, 200, _, Ref} = hackney:request(get, URL, ?HEADERS),
+        {ok, Body} = hackney:body(Ref),
+        jiffy:decode(Body, [return_maps])
+        end,
+    #{
+        <<"reply_from">> := <<"read">>
+    } = F(build_url(<<"/simple">>, Config)),
+    #{
+        <<"got_page">> := <<"25">>,
+        <<"got_order">> := <<"asc">>
+    } = F(build_url(<<"/simple?page=25&order=asc">>, Config)),
     ok.
 
 
-basic_user_handler_with_error_handler_test(Config) ->
-    URL1 = build_url(<<"/basic_with_error_handler/users">>, Config),
+post_put_delete_test(Config) ->
+    URL = build_url(<<"/simple">>, Config),
+    F = fun(Method) ->
+        {ok, 200, _, Ref} = hackney:request(Method, URL, ?HEADERS),
+        {ok, Body} = hackney:body(Ref),
+        jiffy:decode(Body, [return_maps])
+        end,
+    #{<<"reply_from">> := <<"create">>} = F(post),
+    #{<<"reply_from">> := <<"update">>} = F(put),
+    #{<<"reply_from">> := <<"delete">>} = F(delete),
+    ok.
+
+
+basic_users_handler_test(Config) ->
+    URL1 = build_url(<<"/basic/users">>, Config),
+    {ok, 200, _, Ref1} = hackney:request(get, URL1, ?HEADERS),
+    {ok, Body} = hackney:body(Ref1),
+    [
+        #{<<"id">> := <<"1">>, <<"name">> := <<"Username 1">>},
+        #{<<"id">> := <<"2">>, <<"name">> := <<"Username 2">>}
+    ] = jiffy:decode(Body, [return_maps]),
+
+    URL2 = build_url(<<"/basic/users/1">>, Config),
+    {ok, 404, _, Ref2} = hackney:request(get, URL2, ?HEADERS),
+    {ok, <<"Not found">>} = hackney:body(Ref2),
+    ok.
+
+
+custom_users_handler_test(Config) ->
+    URL1 = build_url(<<"/custom/users">>, Config),
     {ok, 200, _, _} = hackney:request(get, URL1, ?HEADERS),
 
-    URL2 = build_url(<<"/basic_with_error_handler/users/1">>, Config),
+    URL2 = build_url(<<"/custom/users/1">>, Config),
     {ok, 404, _, _} = hackney:request(get, URL2, ?HEADERS),
 
-    URL3 = build_url(<<"/basic_with_error_handler/users/error_id">>, Config),
+    URL3 = build_url(<<"/custom/users/error_id">>, Config),
     {ok, 400, _, _} = hackney:request(get, URL3, ?HEADERS),
 
-    URL4 = build_url(<<"/basic_with_error_handler/users/custom_error_id">>, Config),
+    URL4 = build_url(<<"/custom/users/custom_error_id">>, Config),
     {ok, 400, _, _} = hackney:request(get, URL4, ?HEADERS),
 
-    URL5 = build_url(<<"/basic_with_error_handler/users/throw_id">>, Config),
+    URL5 = build_url(<<"/custom/users/throw_id">>, Config),
     {ok, 400, _, _} = hackney:request(get, URL5, ?HEADERS),
     ok.
 
 
 users_handler_with_transitions_test(Config) ->
-    URL1 = build_url(<<"/transitions/users">>, Config),
-    {ok, 200, _, _} = hackney:request(get, URL1, ?HEADERS),
+    URL = build_url(<<"/transitions/users">>, Config),
+    H = [{<<"x-auth-token">>, <<"cft6GLEhLANgstU8sZdL">>} | ?HEADERS],
+    {ok, 200, _, Ref1} = hackney:request(get, URL, H),
+    {ok, Body1} = hackney:body(Ref1),
+    #{
+        <<"reply_from">> := <<"read">>,
+        <<"steps">> := [<<"paging">>, <<"auth">>]
+    } = jiffy:decode(Body1, [return_maps]),
+
+    {ok, 401, _, Ref2} = hackney:request(get, URL, ?HEADERS),
+    {ok, <<"Auth error">>} = hackney:body(Ref2),
+
+    {ok, 200, _, Ref3} = hackney:request(post, URL, H, <<"{\"user_id\":25}">>),
+    {ok, Body3} = hackney:body(Ref3),
+    #{
+        <<"reply_from">> := <<"create">>,
+        <<"user_id">> := 25,
+        <<"steps">> := [<<"validation">>, <<"auth">>]
+    } = jiffy:decode(Body3, [return_maps]),
+
+    {ok, 400, _, Ref4} = hackney:request(post, URL, H, <<"{\"id\":25}">>),
+    {ok, Body4} = hackney:body(Ref4),
+    #{
+        <<"error">> := <<"User ID not provided">>
+    } = jiffy:decode(Body4, [return_maps]),
+
     ok.
 
 

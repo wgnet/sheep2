@@ -15,13 +15,7 @@ read(#{bindings := #{<<"user_id">> := _}}, _State)->
 
 read(_Request, _State)->
     Data = [
-        #{
-            <<"id">> => <<"1">>,
-            <<"name">> => <<"Username 1">>
-        },
-        #{
-            <<"id">> => <<"2">>,
-            <<"name">> => <<"Username 2">>
-        }
+        #{<<"id">> => <<"1">>, <<"name">> => <<"Username 1">>},
+        #{<<"id">> => <<"2">>, <<"name">> => <<"Username 2">>}
     ],
     {ok, sheep_http:response(#{status_code => 200, body => Data})}.
