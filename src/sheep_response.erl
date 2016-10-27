@@ -1,8 +1,6 @@
 -module(sheep_response).
 
--compile([export_all]).
-
--include("sheep.hrl").
+-export([new_204/0, new_404/0, new_405/0, new_406/0, new_500/0, new_501/0, new/2]).
 
 new_204() ->
     new(204, <<>>).

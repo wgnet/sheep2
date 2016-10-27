@@ -35,8 +35,7 @@ init(_Transport, Req, _Opts) ->
     {upgrade, protocol, sheep_http, Req, []}.
 ```
 
-Second, the **sheep_init/2** callback will be called. In it you can set options
-and state.
+Second, the **sheep_init/2** callback will be called where you can set options and state.
 
 ```erlang
 -spec sheep_init(sheep_request(), any()) -> {list(), any()}.
@@ -53,12 +52,12 @@ sheep_init(Request, Opts) ->
 Specifications for methods. Default value is:
 
 ```erlang
-[
-    {<<"POST">>, [create]},
-    {<<"GET">>, [read]},
-    {<<"PUT">>, [update]},
-    {<<"DELETE">>, [delete]}
-]
+#{
+    <<"POST">> => [create],
+    <<"GET">> => [read],
+    <<"PUT">> => [update],
+    <<"DELETE">> => [delete]
+}.
 ```
 
 ### decode_spec
@@ -105,23 +104,6 @@ Default value is:
 
 In case if the **accept** header is not specified response will be encoded to *json*
 
-### access_log_format
-
-> Need to implement
-
-Format of access logs. Available paramaters:
-
-* $remote_addr
-* $host
-* $request
-* $status
-* $http_user_agent
-
-Default value is:
-
-```
-$remote_addr $host - "$request" $status $http_user_agent
-```
 
 ## Error handling
 

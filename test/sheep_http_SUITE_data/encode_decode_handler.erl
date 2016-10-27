@@ -15,30 +15,32 @@
 init(_Transport, Req, _Opts) ->
     {upgrade, protocol, sheep_http, Req, []}.
 
--spec sheep_init(sheep_request(), any()) -> {list(), any()}.
+
+-spec sheep_init(sheep_request(), any()) -> {map(), any()}.
 sheep_init(_Request, _Opts) ->
-    {[
-        {decode_spec, [
-            {<<"application/json">>,
+    Options =
+        #{
+            decode_spec =>
+            #{
+                <<"application/json">> =>
                 fun(Data) ->
                     M = jiffy:decode(Data, [return_maps]),
                     M#{custom_encoder => ok}
-                end}
-        ]},
-        {encode_spec, [
-            {<<"application/json">>,
+                end
+            },
+            encode_spec =>
+            #{
+                <<"application/json">> =>
                 fun(Data) ->
-                    case Data of
-                        _ when is_map(Data) ->
-                            jiffy:encode(Data#{custom_decoder => ok});
-                        _ ->
-                            jiffy:encode(Data)
-                    end
-                end}
-        ]}
-    ],
-    []}.
+                    jiffy:encode(Data#{custom_decoder => ok})
+                end
+            }
+        },
+    State = [],
+    {Options, State}.
 
+
+-spec read(sheep_request(), any()) -> {ok, sheep_response()}.
 read(#{bindings := #{<<"kind">> := <<"empty">>}} = _Request, _State) ->
     {ok, sheep_http:response(#{})};
 
@@ -48,7 +50,5 @@ read(#{bindings := #{<<"kind">> := <<"empty_404">>}} = _Request, _State) ->
 read(#{bindings := #{<<"kind">> := <<"undefined">>}} = _Request, _State) ->
     {ok, sheep_http:response(#{})};
 
-
-% Get collection
 read(#{body := Data}, _State)->
     {ok, sheep_http:response(#{status_code => 200, body => Data})}.

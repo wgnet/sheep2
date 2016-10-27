@@ -4,7 +4,10 @@
 
 -compile([export_all]).
 
--define(HEADERS, [{<<"accept">>, <<"application/json">>}]).
+-define(HEADERS, [
+    {<<"content-type">>, <<"application/json">>},
+    {<<"accept">>, <<"application/json">>}
+]).
 
 all() ->
     [
@@ -87,7 +90,7 @@ users_handler_with_transitions_test(Config) ->
 encode_decode_handler_test(Config) ->
     URL1 = build_url(<<"/encode_decode">>, Config),
     MHeaders = [{<<"accept">>, <<"application/x-msgpack">>}],
-    {ok, 415, _, _} = hackney:request(get, URL1, ?HEADERS, <<"{}">>),
+    {ok, 200, _, _} = hackney:request(get, URL1, ?HEADERS, <<"{}">>),
     {ok, 406, _, _} = hackney:request(get, URL1, MHeaders, <<>>),
 
     URL2 = build_url(<<"/encode_decode/empty">>, Config),
