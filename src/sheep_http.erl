@@ -169,7 +169,7 @@ encode_payload(Request, #{body := Data, headers := Headers} = Response, Options)
     end.
 
 
--spec handle(sheep_request(), module(), list(), term()) -> sheep_response().
+-spec handle(sheep_request(), module(), map(), term()) -> sheep_response().
 handle(#{method := Method} = Request, HandlerModule, SheepOpts, State) ->
     MethodsSpec = maps:get(methods_spec, SheepOpts, default_method_spec()),
 
@@ -185,9 +185,7 @@ handle(#{method := Method} = Request, HandlerModule, SheepOpts, State) ->
         {error, #{status_code := StatusCode} = ErrorResponse} when is_integer(StatusCode) ->
             ErrorResponse;
         {error, ErrorResponse} ->
-            handle_error(HandlerModule, [Request, ErrorResponse]);
-        InvalidResponse ->
-            handle_error(HandlerModule, [Request, {invalid, InvalidResponse}])
+            handle_error(HandlerModule, [Request, ErrorResponse])
     end.
 
 
@@ -261,7 +259,7 @@ default_decode_spec() ->
         end,
         ?MIME_MSGPACK =>
         fun(Payload) ->
-            {ok, Data} = msgpack:unpack(Payload, [{format, map}]),
+            {ok, Data} = msgpack:unpack(Payload, [{map_format, map}]),
             Data
         end
     }.
@@ -275,7 +273,7 @@ default_encode_spec() ->
         end,
         ?MIME_MSGPACK =>
         fun(Payload) ->
-            msgpack:pack(Payload, [{format, map}])
+            msgpack:pack(Payload, [{map_format, map}])
         end
     }.
 
@@ -311,8 +309,8 @@ to_binary(V) when is_binary(V) -> V.
 
 -spec log_response(cowboy_req:req(), http_code()) -> atom().
 log_response(Req, StatusCode) ->
-    error_logger:info_msg(
-        <<"[http] ~s ~s - \"~s ~s ~s\" ~w ~s">>, [
+    error_logger:info_msg("[http] ~s ~s - \"~s ~s ~s\" ~w ~s",
+        [
             % $remote_addr
             inet:ntoa(element(1, element(1, cowboy_req:peer(Req)))),
             % $host
