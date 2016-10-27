@@ -89,9 +89,15 @@ users_handler_with_transitions_test(Config) ->
 
 encode_decode_handler_test(Config) ->
     URL1 = build_url(<<"/encode_decode">>, Config),
-    MHeaders = [{<<"accept">>, <<"application/x-msgpack">>}],
-    {ok, 200, _, _} = hackney:request(get, URL1, ?HEADERS, <<"{}">>),
-    {ok, 406, _, _} = hackney:request(get, URL1, MHeaders, <<>>),
+    MHeaders = [
+        {<<"content-type">>, <<"application/x-msgpack">>},
+        {<<"accept">>, <<"application/x-msgpack">>}
+    ],
+    Data = #{<<"answer">> => 42},
+    JData = jiffy:encode(Data),
+    MData = msgpack:pack(Data),
+    {ok, 200, _, _} = hackney:request(get, URL1, ?HEADERS, JData),
+    {ok, 406, _, _} = hackney:request(get, URL1, MHeaders, MData),
 
     URL2 = build_url(<<"/encode_decode/empty">>, Config),
     {ok, 204, _, _} = hackney:request(get, URL2, ?HEADERS),

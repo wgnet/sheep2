@@ -94,6 +94,7 @@ decode_payload(#{body := Body} = Request, Options) ->
                 Class:Reason ->
                     ST = erlang:get_stacktrace(),
                     error_logger:info_report([
+                        {error, decode_payload},
                         {payload, Body},
                         {description, "can't decode payload"},
                         {exception, {Class,Reason}},
@@ -112,8 +113,10 @@ decode_payload(#{body := Body} = Request, Options) ->
 
 
 -spec encode_payload(sheep_request(), sheep_request(), map()) -> sheep_response().
+encode_payload(_Request, #{body := <<>>} = Response, _Options) ->
+    Response;
 encode_payload(Request, #{body := Data, headers := Headers} = Response, Options) ->
-    AcceptContentType = get_header(<<"content-type">>, Request),
+    AcceptContentType = get_header(<<"accept">>, Request),
     EncodeSpec = maps:get(encode_spec, Options, default_encode_spec()),
 
     case maps:find(AcceptContentType, EncodeSpec) of
@@ -129,17 +132,22 @@ encode_payload(Request, #{body := Data, headers := Headers} = Response, Options)
                 }
             catch
                 Class:Reason ->
+                    ST = erlang:get_stacktrace(),
                     error_logger:info_report([
                         {error, encode_payload},
                         {payload, Data},
                         {description, "can't encode payload"},
                         {exception, {Class,Reason}},
-                        {stacktrace, erlang:get_stacktrace()}
+                        {stacktrace, ST}
                     ]),
                     E = <<"Can't encode '", AcceptContentType/binary, "' payload">>,
                     sheep_response:new(500, E)
             end;
         error ->
+            error_logger:info_report([
+                {error, "not acceptable"},
+                {<<"content-type">>, AcceptContentType}
+            ]),
             sheep_response:new(406, <<"Not acceptable">>)
     end.
 
@@ -246,7 +254,7 @@ default_encode_spec() ->
     #{
         ?MIME_JSON =>
         fun(Payload) ->
-            jiffy:encode(Payload ,[pretty])
+            jiffy:encode(Payload, [pretty])
         end,
         ?MIME_MSGPACK =>
         fun(Payload) ->
