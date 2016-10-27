@@ -20,21 +20,26 @@ upgrade(CowRequest, Env, Handler, HandlerOpts) ->
         headers => element(1, cowboy_req:headers(CowRequest)),
         bindings => to_map(element(1, cowboy_req:bindings(CowRequest))),
         query => to_map(element(1, cowboy_req:qs_vals(CowRequest))),
-        body => #{}
+        body => case cowboy_req:has_body(CowRequest) of
+                    true -> {ok, Body0, _} = cowboy_req:body(CowRequest), Body0;
+                    false -> <<>>
+                end
     },
 
-    {SheepOpts, Response} =
+    {Options, Response} =
         try
-            {Options, State} =
+            {Options0, State} =
                 case erlang:function_exported(Handler, sheep_init, 2) of
                     true -> Handler:sheep_init(Request, HandlerOpts);
                     false -> {#{}, []}
                 end,
-            Request2 = decode_payload(CowRequest, Request, Options),
-            {Options, handle(Request2, Handler, Options, State)}
+            case decode_payload(Request, Options0) of
+                {ok, Request2} ->
+                    Response0 = handle(Request2, Handler, Options0, State),
+                    {Options0, Response0};
+                {error, Response0} -> {Options0, Response0}
+            end
         catch
-            throw:{sheep, #{status_code := StatusCode} = ErrorResponse} ->
-                {#{}, handle_error(Handler, [Request, StatusCode, ErrorResponse])};
             Class:Reason ->
                 {#{}, handle_exception(Handler, [Request, {Class, Reason}])}
         end,
@@ -43,7 +48,7 @@ upgrade(CowRequest, Env, Handler, HandlerOpts) ->
         status_code := ResponseCode,
         headers := ResponseHeaders,
         body := Body
-    } = encode_payload(Request, Response, SheepOpts),
+    } = encode_payload(Request, Response, Options),
 
     {ok, CowResponse} = cowboy_req:reply(ResponseCode, ResponseHeaders, Body, CowRequest),
     log_response(CowResponse, ResponseCode),
@@ -73,46 +78,43 @@ response(Data) ->
 
 %%% Inner functions
 
--spec decode_payload(cowboy_req:req(), sheep_request(), list()) -> sheep_request().
-decode_payload(CowReq, Request, SheepOpts) ->
+-spec decode_payload(sheep_request(), map()) -> {ok, sheep_request()} | {error, sheep_response()}.
+decode_payload(#{body := <<>>} = Request, _Options) ->
+    {ok, Request};
+decode_payload(#{body := Body} = Request, Options) ->
     RawContentType = get_header(<<"content-type">>, Request),
     CleanContentType = clean_content_type(RawContentType),
-    DecodeSpec = maps:get(decode_spec, SheepOpts, default_decode_spec()),
+    DecodeSpec = maps:get(decode_spec, Options, default_decode_spec()),
 
-    Fn = case maps:find(CleanContentType, DecodeSpec) of
-             {ok, F} -> F;
-             error ->
-                 error_logger:info_report([
-                     {error, "not supported"},
-                     {<<"content-type">>, RawContentType}
-                 ]),
-                 throw({sheep, sheep_response:new(415, <<"Not supported 'content-type'">>)})
-         end,
-
-    case cowboy_req:has_body(CowReq) of
-        true ->
-            {ok, Body, _} = cowboy_req:body(CowReq),
+    case maps:find(CleanContentType, DecodeSpec) of
+        {ok, Fn} ->
             try
-                Request#{body := Fn(Body)}
+                {ok, Request#{body := Fn(Body)}}
             catch
                 Class:Reason ->
+                    ST = erlang:get_stacktrace(),
                     error_logger:info_report([
                         {payload, Body},
                         {description, "can't decode payload"},
                         {exception, {Class,Reason}},
-                        {stacktrace, erlang:get_stacktrace()}
+                        {stacktrace, ST}
                     ]),
                     E = <<"Can't decode '", RawContentType/binary, "' payload">>,
-                    throw({sheep, sheep_response:new(400, E)})
+                    {error, sheep_response:new(400, E)}
             end;
-        false -> Request
+        error ->
+            error_logger:info_report([
+                {error, "not supported"},
+                {<<"content-type">>, RawContentType}
+            ]),
+            {error, sheep_response:new(415, <<"Not supported 'content-type'">>)}
     end.
 
 
--spec encode_payload(sheep_request(), sheep_request(), list()) -> sheep_request().
-encode_payload(Request, #{body := Data, headers := Headers} = Response, SheepOpts) ->
+-spec encode_payload(sheep_request(), sheep_request(), map()) -> sheep_response().
+encode_payload(Request, #{body := Data, headers := Headers} = Response, Options) ->
     AcceptContentType = get_header(<<"content-type">>, Request),
-    EncodeSpec = maps:get(encode_spec, SheepOpts, default_encode_spec()),
+    EncodeSpec = maps:get(encode_spec, Options, default_encode_spec()),
 
     case maps:find(AcceptContentType, EncodeSpec) of
         {ok, Fn} ->
@@ -151,12 +153,12 @@ handle(#{method := Method} = Request, HandlerModule, SheepOpts, State) ->
             {ok, Handlers} when is_list(Handlers) ->
                 call_handlers(Request, HandlerModule, Handlers, State);
             error ->
-                throw({sheep, sheep_response:new_405()})
+                {ok, sheep_response:new_405()}
         end,
     case Result of
         {ok, OkResponse} -> OkResponse;
         {error, #{status_code := StatusCode} = ErrorResponse} when is_integer(StatusCode) ->
-            handle_error(HandlerModule, [Request, StatusCode, ErrorResponse]);
+            ErrorResponse;
         {error, ErrorResponse} ->
             handle_error(HandlerModule, [Request, ErrorResponse]);
         InvalidResponse ->
@@ -164,9 +166,10 @@ handle(#{method := Method} = Request, HandlerModule, SheepOpts, State) ->
     end.
 
 
+-spec call_handlers(sheep_request(), atom(), list(), term()) ->
+    {ok, sheep_response()} | {error, sheep_response()}.
 call_handlers(_Request, _Module, [], _State) ->
-    throw({sheep, sheep_response:new_204()});
-
+    {ok, sheep_response:new_204()};
 
 call_handlers(Request, Module, [HandlerFun|Handlers], State) ->
     Fun = case erlang:is_function(HandlerFun, 2) of
@@ -174,7 +177,7 @@ call_handlers(Request, Module, [HandlerFun|Handlers], State) ->
               _ ->
                   case erlang:function_exported(Module, HandlerFun, 2) of
                       true -> fun Module:HandlerFun/2;
-                      _ -> throw({sheep, sheep_response:new_501()})
+                      _ -> {ok, sheep_response:new_501()}
                   end
           end,
     case Fun(Request, State) of
@@ -182,15 +185,16 @@ call_handlers(Request, Module, [HandlerFun|Handlers], State) ->
             call_handlers(Request, Module, Handlers, NewState);
         {noreply, NewRequest, NewState} ->
             call_handlers(NewRequest, Module, Handlers, NewState);
-        Result ->
-            Result
+        Result -> Result
     end.
 
 
+-spec handle_error(atom(), list()) -> sheep_response().
 handle_error(Handler, Args) ->
     handle_error(Handler, error_handler, Args).
 
 
+-spec handle_error(atom(), atom(), list()) -> sheep_response().
 handle_error(Handler, Fn, Args) ->
     case erlang:function_exported(Handler, Fn, length(Args)) of
         true ->
@@ -208,20 +212,18 @@ handle_error(Handler, Fn, Args) ->
                     sheep_response:new_500()
             end;
         false ->
+            ST = erlang:get_stacktrace(),
             case {Fn, Args} of
-                {error_handler, [_Request, _StatusCode, Response]} -> Response;
                 {error_handler, [_Request, Error]} ->
-                    ST = erlang:get_stacktrace(),
-                    error_logger:error_report([{error, Error}, {stacktrace, ST}]),
-                    sheep_response:new_500();
+                    error_logger:error_report([{error, Error}, {stacktrace, ST}]);
                 {exception_handler, [_Request, Exception]} ->
-                    ST = erlang:get_stacktrace(),
-                    error_logger:error_report([{exception, Exception}, {stacktrace, ST}]),
-                    sheep_response:new_500()
-            end
+                    error_logger:error_report([{exception, Exception}, {stacktrace, ST}])
+            end,
+            sheep_response:new_500()
     end.
 
 
+-spec handle_exception(atom(), list()) -> sheep_response().
 handle_exception(Handler, Args) ->
     handle_error(Handler, exception_handler, Args).
 

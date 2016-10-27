@@ -8,7 +8,7 @@ init(_Transport, Req, _Opts) ->
     {upgrade, protocol, sheep_http, Req, []}.
 
 
--spec read(sheep_request(), any()) -> {ok, sheep_response()}.
+-spec read(sheep_request(), any()) -> {ok, sheep_response()} | {error, sheep_response()}.
 read(#{bindings := #{<<"user_id">> := _}}, _State)->
     {error, sheep_response:new_404()};
 
