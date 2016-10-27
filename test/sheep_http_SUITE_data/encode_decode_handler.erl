@@ -43,5 +43,6 @@ read(#{bindings := #{<<"kind">> := <<"empty_404">>}} = _Request, _State) ->
 read(#{bindings := #{<<"kind">> := <<"undefined">>}} = _Request, _State) ->
     {ok, sheep_http:response(#{})};
 
-read(#{body := Data}, _State)->
-    {ok, sheep_http:response(#{status_code => 200, body => Data})}.
+read(#{body := Body}, _State)->
+    Body2 = Body#{readed => true},
+    {ok, sheep_http:response(#{status_code => 200, body => Body2})}.

@@ -9,17 +9,24 @@
     {<<"accept">>, <<"application/json">>}
 ]).
 
+-define(M_HEADERS, [
+    {<<"content-type">>, <<"application/x-msgpack">>},
+    {<<"accept">>, <<"application/x-msgpack">>}
+]).
+
 all() ->
     [
         basic_users_handler_test,
         basic_user_handler_with_error_handler_test,
         users_handler_with_transitions_test,
-        encode_decode_handler_test
+        encode_decode_handler_test,
+        status_204_test
     ].
 
 init_dispatch() ->
     cowboy_router:compile([
         {"localhost", [
+            {"/simple[/:param]", simple_handler, []},
             {"/basic/users[/:user_id]", basic_users_handler, []},
             {"/basic_with_error_handler/users[/:user_id]", basic_users_handler_with_error_handler, []},
             {"/transitions/users[/:user_id]", users_handler_with_transitions, []},
@@ -89,15 +96,20 @@ users_handler_with_transitions_test(Config) ->
 
 encode_decode_handler_test(Config) ->
     URL1 = build_url(<<"/encode_decode">>, Config),
-    MHeaders = [
-        {<<"content-type">>, <<"application/x-msgpack">>},
-        {<<"accept">>, <<"application/x-msgpack">>}
-    ],
     Data = #{<<"answer">> => 42},
+
     JData = jiffy:encode(Data),
+    {ok, 200, _, Ref} = hackney:request(get, URL1, ?HEADERS, JData),
+    {ok, Body} = hackney:body(Ref),
+    #{
+        <<"answer">> := 42,
+        <<"custom_decoder">> := <<"ok">>,
+        <<"readed">> := true,
+        <<"custom_encoder">> := <<"ok">>
+    } = jiffy:decode(Body, [return_maps]),
+
     MData = msgpack:pack(Data),
-    {ok, 200, _, _} = hackney:request(get, URL1, ?HEADERS, JData),
-    {ok, 406, _, _} = hackney:request(get, URL1, MHeaders, MData),
+    {ok, 415, _, _} = hackney:request(get, URL1, ?M_HEADERS, MData),
 
     URL2 = build_url(<<"/encode_decode/empty">>, Config),
     {ok, 204, _, _} = hackney:request(get, URL2, ?HEADERS),
@@ -108,3 +120,18 @@ encode_decode_handler_test(Config) ->
     URL4 = build_url(<<"/encode_decode/undefined">>, Config),
     {ok, 204, _, _} = hackney:request(get, URL4, ?HEADERS),
     ok.
+
+
+status_204_test(Config) ->
+    URL1 = build_url(<<"/simple/empty_1">>, Config),
+    {ok, 204, Headers1, Ref1} = hackney:request(get, URL1, ?HEADERS),
+    <<"0">> = proplists:get_value(<<"content-length">>, Headers1),
+    {ok, <<>>} = hackney:body(Ref1),
+
+    URL2 = build_url(<<"/simple/empty_2">>, Config),
+    {ok, 204, Headers2, Ref2} = hackney:request(get, URL2, ?HEADERS),
+    <<"0">> = proplists:get_value(<<"content-length">>, Headers2),
+    {ok, <<>>} = hackney:body(Ref2),
+    ok.
+
+

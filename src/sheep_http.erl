@@ -32,7 +32,6 @@
                      {ok, cowboy_req:req(), cowboy_middleware:env()}.
 upgrade(CowRequest, Env, Handler, HandlerOpts) ->
     Request = #{
-        meta => [],
         method => element(1, cowboy_req:method(CowRequest)),
         headers => element(1, cowboy_req:headers(CowRequest)),
         bindings => to_map(element(1, cowboy_req:bindings(CowRequest))),
@@ -60,7 +59,6 @@ upgrade(CowRequest, Env, Handler, HandlerOpts) ->
             Class:Reason ->
                 {#{}, handle_exception(Handler, [Request, {Class, Reason}])}
         end,
-
     #{
         status_code := ResponseCode,
         headers := ResponseHeaders,
@@ -89,7 +87,7 @@ response(Data) ->
     maps:merge(#{
         status_code => 204,
         headers => [],
-        body => #{}
+        body => <<>>
     }, Data).
 
 
@@ -130,9 +128,11 @@ decode_payload(#{body := Body} = Request, Options) ->
 
 
 -spec encode_payload(sheep_request(), sheep_request(), map()) -> sheep_response().
-encode_payload(_Request, #{body := <<>>} = Response, _Options) ->
+encode_payload(_Request, #{body := Body} = Response, _Options) when is_binary(Body) ->
     Response;
-encode_payload(Request, #{body := Data, headers := Headers} = Response, Options) ->
+encode_payload(_Request, #{status_code := 204} = Response, _Options) ->
+    Response#{body => <<>>};
+encode_payload(Request, #{body := Body, headers := Headers} = Response, Options) ->
     AcceptContentType = get_header(<<"accept">>, Request),
     EncodeSpec = maps:get(encode_spec, Options, default_encode_spec()),
 
@@ -143,16 +143,17 @@ encode_payload(Request, #{body := Data, headers := Headers} = Response, Options)
                     <<"content-type">>, 1, Headers,
                     {<<"content-type">>, AcceptContentType}
                 ),
+                Body2 = Fn(Body),
                 Response#{
                     headers := Headers2,
-                    body := Fn(Data)
+                    body := Body2
                 }
             catch
                 Class:Reason ->
                     ST = erlang:get_stacktrace(),
                     error_logger:info_report([
                         {error, encode_payload},
-                        {payload, Data},
+                        {payload, Body},
                         {description, "can't encode payload"},
                         {exception, {Class,Reason}},
                         {stacktrace, ST}
