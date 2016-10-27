@@ -3,7 +3,6 @@
 
 -export([
     init/3,
-    error_handler/3,
     error_handler/2,
     exception_handler/2,
     read/2
@@ -15,14 +14,8 @@ init(_Transport, Req, _Opts) ->
     {upgrade, protocol, sheep_http, Req, []}.
 
 
-error_handler(_Request, 400, #{body := Error} = Response) ->
-    Data = #{<<"error">> => Error},
-    Response#{body => Data}.
-
-
-error_handler(_Request, {custom_error, Message}) ->
-    Data = #{<<"error">> => Message},
-    sheep_http:response(#{status_code => 400, body => Data}).
+error_handler(_Request, #{body := Body} = Response) ->
+    Response#{status_code => 400, body => Body#{<<"custom_error_handler">> => ok}}.
 
 
 exception_handler(_Request, {throw, test_exception}) ->
@@ -31,16 +24,21 @@ exception_handler(_Request, {throw, test_exception}) ->
 
 
 -spec read(sheep_request(), any()) -> {ok, sheep_response()}.
-read(#{bindings := #{<<"user_id">> := <<"error_id">>}}, _State)->
-    {error, sheep_http:response(#{status_code => 400, body => <<"Error message">>})};
+read(#{bindings := #{<<"user_id">> := <<"simple_error">>}}, _State)->
+    Body = #{<<"error">> => <<"simple_error">>},
+    {error, sheep_http:response(#{status_code => 400, body => Body})};
 
-read(#{bindings := #{<<"user_id">> := <<"custom_error_id">>}}, _State)->
-    {error, {custom_error, <<"Error message">>}};
+read(#{bindings := #{<<"user_id">> := <<"custom_error">>}}, _State)->
+    Body = #{<<"error">> => <<"custom_error">>},
+    {error, sheep_http:response(#{body => Body})};
 
-read(#{bindings := #{<<"user_id">> := <<"throw_id">>}}, _State)->
-    throw(test_exception);
+%%read(#{bindings := #{<<"user_id">> := <<"custom_error_id">>}}, _State)->
+%%    {error, {custom_error, <<"Error message">>}};
+%%
+%%read(#{bindings := #{<<"user_id">> := <<"throw_id">>}}, _State)->
+%%    throw(test_exception);
 
-read(#{bindings := #{<<"user_id">> := _}}, _State)->
+read(#{bindings := #{<<"user_id">> := _UserID}}, _State)->
     {ok, sheep_http:response(#{status_code => 404, body => <<"Not found">>})};
 
 read(_Request, _State)->

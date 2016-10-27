@@ -112,14 +112,26 @@ custom_users_handler_test(Config) ->
     URL2 = build_url(<<"/custom/users/1">>, Config),
     {ok, 404, _, _} = hackney:request(get, URL2, ?HEADERS),
 
-    URL3 = build_url(<<"/custom/users/error_id">>, Config),
-    {ok, 400, _, _} = hackney:request(get, URL3, ?HEADERS),
+    URL3 = build_url(<<"/custom/users/simple_error">>, Config),
+    {ok, 400, _, Ref3} = hackney:request(get, URL3, ?HEADERS),
+    {ok, Body3} = hackney:body(Ref3),
+    #{
+        <<"error">> := <<"simple_error">>
+    } = jiffy:decode(Body3, [return_maps]),
 
-    URL4 = build_url(<<"/custom/users/custom_error_id">>, Config),
-    {ok, 400, _, _} = hackney:request(get, URL4, ?HEADERS),
-
-    URL5 = build_url(<<"/custom/users/throw_id">>, Config),
-    {ok, 400, _, _} = hackney:request(get, URL5, ?HEADERS),
+    URL4 = build_url(<<"/custom/users/custom_error">>, Config),
+    {ok, 400, _, Ref4} = hackney:request(get, URL4, ?HEADERS),
+    {ok, Body4} = hackney:body(Ref4),
+    #{
+        <<"error">> := <<"custom_error">>,
+        <<"custom_error_handler">> := <<"ok">>
+    } = jiffy:decode(Body4, [return_maps]),
+    
+%%    URL4 = build_url(<<"/custom/users/custom_error_id">>, Config),
+%%    {ok, 400, _, _} = hackney:request(get, URL4, ?HEADERS),
+%%
+%%    URL5 = build_url(<<"/custom/users/throw_id">>, Config),
+%%    {ok, 400, _, _} = hackney:request(get, URL5, ?HEADERS),
     ok.
 
 

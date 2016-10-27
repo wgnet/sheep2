@@ -85,7 +85,7 @@ get_header(Name, #{headers := Headers}, Default) ->
 -spec response(map()) -> sheep_response().
 response(Data) ->
     maps:merge(#{
-        status_code => 204,
+        status_code => 500,
         headers => [],
         body => <<>>
     }, Data).
@@ -183,7 +183,7 @@ handle(#{method := Method} = Request, HandlerModule, SheepOpts, State) ->
         end,
     case Result of
         {ok, OkResponse} -> OkResponse;
-        {error, #{status_code := StatusCode} = ErrorResponse} when is_integer(StatusCode) ->
+        {error, #{status_code := StatusCode} = ErrorResponse} when StatusCode < 500 ->
             ErrorResponse;
         {error, ErrorResponse} ->
             handle_error(HandlerModule, [Request, ErrorResponse])
@@ -220,7 +220,7 @@ handle_error(Handler, Args) ->
 
 -spec handle_error(atom(), atom(), list()) -> sheep_response().
 handle_error(Handler, Fn, Args) ->
-    case erlang:function_exported(Handler, Fn, length(Args)) of
+    case erlang:function_exported(Handler, Fn, 2) of
         true ->
             try
                 apply(Handler, Fn, Args)

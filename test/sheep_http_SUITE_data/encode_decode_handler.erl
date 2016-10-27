@@ -35,13 +35,13 @@ sheep_init(_Request, _Opts) ->
 
 -spec read(sheep_request(), any()) -> {ok, sheep_response()}.
 read(#{bindings := #{<<"kind">> := <<"empty">>}} = _Request, _State) ->
-    {ok, sheep_http:response(#{})};
+    {ok, sheep_http:response(#{status_code => 204})};
 
 read(#{bindings := #{<<"kind">> := <<"empty_404">>}} = _Request, _State) ->
     {ok, sheep_http:response(#{status_code => 404})};
 
 read(#{bindings := #{<<"kind">> := <<"undefined">>}} = _Request, _State) ->
-    {ok, sheep_http:response(#{})};
+    {ok, sheep_http:response(#{status_code => 204})};
 
 read(#{body := Body}, _State)->
     Body2 = Body#{readed => true},
