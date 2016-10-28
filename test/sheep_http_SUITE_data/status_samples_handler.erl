@@ -20,6 +20,9 @@ read(#{bindings := #{<<"user_id">> := <<"2">>}}, _State) ->
 read(#{bindings := #{<<"user_id">> := <<"3">>}}, _State) ->
     sheep_http:response(#{status_code => 204, body => #{}});
 
+read(#{bindings := #{<<"user_id">> := <<"5">>}}, _State)->
+    throw(test_exception);
+
 read(#{bindings := #{<<"user_id">> := _}}, _State)->
     sheep_response:new_404();
 
