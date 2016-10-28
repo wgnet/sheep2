@@ -1,4 +1,4 @@
--module(users_handler_with_transitions).
+-module(pipeline_handler).
 -behaviour(sheep_http).
 
 -export([

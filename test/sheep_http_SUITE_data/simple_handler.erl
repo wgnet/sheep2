@@ -10,12 +10,6 @@ init(_Transport, Req, _Opts) ->
 
 
 -spec read(sheep_request(), term()) -> sheep_response().
-read(#{bindings := #{<<"param">> := <<"empty_1">>}}, _State) ->
-    sheep_http:response(#{status_code => 204, body => <<>>});
-
-read(#{bindings := #{<<"param">> := <<"empty_2">>}}, _State) ->
-    sheep_http:response(#{status_code => 204, body => #{}});
-
 read(#{query := #{<<"page">> := Page, <<"order">> := Order}}, _State) ->
     Body = #{<<"got_page">> => Page, <<"got_order">> => Order},
     sheep_http:response(#{status_code => 200, body => Body});
