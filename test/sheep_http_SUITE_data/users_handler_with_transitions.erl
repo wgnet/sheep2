@@ -41,20 +41,20 @@ authorization(Request, #state{steps = Steps} = State) ->
     Token = sheep_http:get_header(<<"x-auth-token">>, Request),
     case Token of
         <<"cft6GLEhLANgstU8sZdL">> ->
-            {noreply, State#state{steps = [<<"auth">> | Steps]}};
+            {continue, State#state{steps = [<<"auth">> | Steps]}};
         _ ->
             sheep_response:new(401, <<"Auth error">>)
     end.
 
 
 paging(_Request, #state{steps = Steps} = State) ->
-    {noreply, State#state{steps = [<<"paging">> | Steps]}}.
+    {continue, State#state{steps = [<<"paging">> | Steps]}}.
 
 
 validation(#{body := Body}, #state{steps = Steps} = State) ->
     case Body of
         #{<<"user_id">> := UserID} ->
-            {noreply, State#state{steps = [<<"validation">> | Steps], user_id = UserID}};
+            {continue, State#state{steps = [<<"validation">> | Steps], user_id = UserID}};
         _ -> sheep_response:new(400, #{<<"error">> => <<"User ID not provided">>})
     end.
 

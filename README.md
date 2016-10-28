@@ -2,7 +2,7 @@
 
 Cowboy protocol and set of utility funs for building JSON/MsgPack APIs
 
-# Motivation
+## Motivation
 
 Cowboy already includes protocol "cowboy_rest", but it has a several disadvantages:
 
@@ -11,7 +11,7 @@ Cowboy already includes protocol "cowboy_rest", but it has a several disadvantag
 * no logging
 
 
-# User guide
+## User guide
 
 * Initialization
 * Options
@@ -168,9 +168,9 @@ you can specify list of functions that must be called.
 
 Each function should return one of the following values:
 
-* {noreply, State} - for this case the next function from list will be called
-* {error, _} - for this case appropriate **error_handler** (see above) will be called
-* {ok, #sheep_response{}} - This result will be considered as final and it should be returned as response for request
+* {continue, State} - for this case the next function from list will be called
+* {continue, Response, State}
+* #sheep_response{} - This result will be considered as final and it should be returned as response for request
 
 For example if you specify **methods_spec** with following value:
 
