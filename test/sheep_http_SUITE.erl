@@ -22,7 +22,8 @@ all() ->
         custom_users_handler_test,
         users_handler_with_transitions_test,
         encode_decode_handler_test,
-        status_204_test
+        status_204_test,
+        invalid_handler_test
     ].
 
 init_dispatch() ->
@@ -32,7 +33,8 @@ init_dispatch() ->
             {"/basic/users[/:user_id]", basic_users_handler, []},
             {"/custom/users[/:user_id]", custom_users_handler, []},
             {"/transitions/users[/:user_id]", users_handler_with_transitions, []},
-            {"/encode_decode[/:kind]", encode_decode_handler, []}
+            {"/encode_decode[/:kind]", encode_decode_handler, []},
+            {"/invalid", invalid_handler, []}
         ]}
     ]).
 
@@ -204,4 +206,11 @@ status_204_test(Config) ->
     {ok, <<>>} = hackney:body(Ref2),
     ok.
 
+
+invalid_handler_test(Config) ->
+    URL = build_url(<<"/invalid">>, Config),
+    {ok, 204, _, _} = hackney:request(get, URL, ?HEADERS), % empty list of callbacks
+    {ok, 405, _, _} = hackney:request(put, URL, ?HEADERS), % no callbacks in methods_spec
+    {ok, 501, _, _} = hackney:request(post, URL, ?HEADERS), % callback in list but not exported
+    ok.
 

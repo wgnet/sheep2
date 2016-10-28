@@ -167,30 +167,34 @@ handle(#{method := Method} = Request, HandlerModule, SheepOpts, State) ->
     MethodsSpec = maps:get(methods_spec, SheepOpts, default_method_spec()),
     case maps:find(Method, MethodsSpec) of
         {ok, Handlers} when is_list(Handlers) ->
-            call_handlers(Request, HandlerModule, Handlers, State);
+            call_handlers(Handlers, Request, HandlerModule, State);
         error ->
-            {ok, sheep_response:new_405()}
+            sheep_response:new_405()
     end.
 
 
--spec call_handlers(sheep_request(), atom(), list(), term()) -> sheep_response().
-call_handlers(_Request, _Module, [], _State) ->
+-spec call_handlers(list(), sheep_request(), atom(), term()) -> sheep_response().
+call_handlers([], _Request, _Module, _State) ->
     sheep_response:new_204();
 
-call_handlers(Request, Module, [HandlerFun|Handlers], State) ->
-    Fun = case erlang:is_function(HandlerFun, 2) of
-              true -> HandlerFun;
-              _ ->
-                  case erlang:function_exported(Module, HandlerFun, 2) of
-                      true -> fun Module:HandlerFun/2;
-                      _ -> sheep_response:new_501()
-                  end
-          end,
+call_handlers([Handler | Handlers], Request, Module, State) ->
+    case erlang:is_function(Handler, 2) of
+        true -> call_fun(Handler, Handlers, Request, Module, State);
+        _ ->
+            case erlang:function_exported(Module, Handler, 2) of
+                true -> call_fun(fun Module:Handler/2, Handlers, Request, Module, State);
+                _ -> sheep_response:new_501()
+            end
+    end.
+
+
+-spec call_fun(function(), list(), sheep_request(), atom(), term()) -> sheep_response().
+call_fun(Fun, Handlers, Request, Module, State) ->
     case Fun(Request, State) of
         {continue, NewState} ->
-            call_handlers(Request, Module, Handlers, NewState);
+            call_handlers(Handlers, Request, Module, NewState);
         {continue, NewRequest, NewState} ->
-            call_handlers(NewRequest, Module, Handlers, NewState);
+            call_handlers(Handlers, NewRequest, Module, NewState);
         Result -> Result
     end.
 
