@@ -39,7 +39,10 @@ init_per_suite(Config) ->
             {"/status/users[/:user_id]", status_samples_handler, []},
             {"/e/status/users[/:user_id]", error_status_samples_handler, []},
             {"/encode_decode[/:kind]", encode_decode_handler, []},
-            {"/invalid", invalid_handler, []}
+            {"/invalid", invalid_handler, []},
+            {"/invalid/init", invalid_init_handler, []},
+            {"/invalid/init/2", invalid_init_2_handler, []},
+            {"/invalid/init/3", invalid_init_3_handler, []}
         ]}
     ]),
 
@@ -169,6 +172,11 @@ invalid_handler_test(_Config) ->
     {204, _, <<>>} = query(get, Path), % empty list of callbacks
     {405, _, <<"Method not allowed">>} = query(put, Path), % no callbacks in methods_spec
     {501, _, <<"Not implemented">>} = query(post, Path), % callback in list but not exported
+
+    {500, _, <<"Internal server error">>} = query("/invalid/init"),
+    {400, _, Body1} = query("/invalid/init/2"),
+    #{<<"error">> := <<"Test exception">>} = jiffy:decode(Body1, [return_maps]),
+    {500, _, <<"Internal server error">>} = query("/invalid/init/3"),
     ok.
 
 

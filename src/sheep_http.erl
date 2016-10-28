@@ -204,24 +204,24 @@ handle_exception(Handler, Request, Class, Reason) ->
     case erlang:function_exported(Handler, exception_handler, 3) of
         true ->
             try
-                apply(Handler, exception_handler, [Request, Class, Reason])
+                Handler:exception_handler(Request, Class, Reason)
             catch
-                Class:Reason ->
-                    ST = erlang:get_stacktrace(),
+                Class1:Reason1 ->
+                    ST1 = erlang:get_stacktrace(),
                     error_logger:error_report([
                         {error, invalid_exception_handler},
                         {handler, Handler},
-                        {exception, {Class, Reason}},
-                        {stacktrace, ST}
+                        {exception, {Class1, Reason1}},
+                        {stacktrace, ST1}
                     ]),
                     sheep_response:new_500()
             end;
         false ->
-            ST = erlang:get_stacktrace(),
+            ST2 = erlang:get_stacktrace(),
             error_logger:error_report([
                 {handler, Handler},
                 {exception, {Class, Reason}},
-                {stacktrace, ST}
+                {stacktrace, ST2}
             ]),
             sheep_response:new_500()
     end.
