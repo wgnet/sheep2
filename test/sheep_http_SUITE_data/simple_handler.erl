@@ -9,32 +9,35 @@ init(_Transport, Req, _Opts) ->
     {upgrade, protocol, sheep_http, Req, []}.
 
 
--spec read(sheep_request(), any()) -> {ok, sheep_response()}.
+-spec read(sheep_request(), term()) -> sheep_response().
 read(#{bindings := #{<<"param">> := <<"empty_1">>}}, _State) ->
-    {ok, sheep_http:response(#{status_code => 204, body => <<>>})};
+    sheep_http:response(#{status_code => 204, body => <<>>});
 
 read(#{bindings := #{<<"param">> := <<"empty_2">>}}, _State) ->
-    {ok, sheep_http:response(#{status_code => 204, body => #{}})};
+    sheep_http:response(#{status_code => 204, body => #{}});
 
 read(#{query := #{<<"page">> := Page, <<"order">> := Order}}, _State) ->
     Body = #{<<"got_page">> => Page, <<"got_order">> => Order},
-    {ok, sheep_http:response(#{status_code => 200, body => Body})};
+    sheep_http:response(#{status_code => 200, body => Body});
 
 read(_Request, _State)->
     Body = #{<<"reply_from">> => <<"read">>},
-    {ok, sheep_http:response(#{status_code => 200, body => Body})}.
+    sheep_http:response(#{status_code => 200, body => Body}).
 
 
+-spec create(sheep_request(), term()) -> sheep_response().
 create(_Request, _State)->
     Body = #{<<"reply_from">> => <<"create">>},
-    {ok, sheep_http:response(#{status_code => 200, body => Body})}.
+    sheep_http:response(#{status_code => 200, body => Body}).
 
 
+-spec update(sheep_request(), term()) -> sheep_response().
 update(_Request, _State)->
     Body = #{<<"reply_from">> => <<"update">>},
-    {ok, sheep_http:response(#{status_code => 200, body => Body})}.
+    sheep_http:response(#{status_code => 200, body => Body}).
 
 
+-spec delete(sheep_request(), term()) -> sheep_response().
 delete(_Request, _State)->
     Body = #{<<"reply_from">> => <<"delete">>},
-    {ok, sheep_http:response(#{status_code => 200, body => Body})}.
+    sheep_http:response(#{status_code => 200, body => Body}).

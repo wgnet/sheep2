@@ -23,7 +23,7 @@ init(_Transport, Req, _Opts) ->
     {upgrade, protocol, sheep_http, Req, []}.
 
 
--spec sheep_init(sheep_request(), any()) -> {map(), any()}.
+-spec sheep_init(sheep_request(), term()) -> {map(), term()}.
 sheep_init(_Request, _Opts) ->
     Options =
         #{
@@ -43,7 +43,7 @@ authorization(Request, #state{steps = Steps} = State) ->
         <<"cft6GLEhLANgstU8sZdL">> ->
             {noreply, State#state{steps = [<<"auth">> | Steps]}};
         _ ->
-            {error, sheep_response:new(401, <<"Auth error">>)}
+            sheep_response:new(401, <<"Auth error">>)
     end.
 
 
@@ -55,24 +55,24 @@ validation(#{body := Body}, #state{steps = Steps} = State) ->
     case Body of
         #{<<"user_id">> := UserID} ->
             {noreply, State#state{steps = [<<"validation">> | Steps], user_id = UserID}};
-        _ -> {error, sheep_response:new(400, #{<<"error">> => <<"User ID not provided">>})}
+        _ -> sheep_response:new(400, #{<<"error">> => <<"User ID not provided">>})
     end.
 
 
--spec read(sheep_request(), any()) -> {ok, sheep_response()}.
+-spec read(sheep_request(), term()) -> sheep_response().
 read(_Request, #state{steps = Steps}) ->
     Body = #{
         <<"reply_from">> => <<"read">>,
         <<"steps">> => Steps
     },
-    {ok, sheep_http:response(#{status_code => 200, body => Body})}.
+    sheep_http:response(#{status_code => 200, body => Body}).
 
 
--spec create(sheep_request(), any()) -> {ok, sheep_response()}.
+-spec create(sheep_request(), term()) -> sheep_response().
 create(_Request, #state{steps = Steps, user_id = UserID}) ->
     Body = #{
         <<"reply_from">> => <<"create">>,
         <<"steps">> => Steps,
         <<"user_id">> => UserID
     },
-    {ok, sheep_http:response(#{status_code => 200, body => Body})}.
+    sheep_http:response(#{status_code => 200, body => Body}).

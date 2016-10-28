@@ -9,7 +9,7 @@ init(_Transport, Req, _Opts) ->
     {upgrade, protocol, sheep_http, Req, []}.
 
 
--spec sheep_init(sheep_request(), any()) -> {map(), any()}.
+-spec sheep_init(sheep_request(), term()) -> {map(), term()}.
 sheep_init(_Request, _Opts) ->
     Options =
         #{
@@ -33,16 +33,16 @@ sheep_init(_Request, _Opts) ->
     {Options, State}.
 
 
--spec read(sheep_request(), any()) -> {ok, sheep_response()}.
+-spec read(sheep_request(), term()) -> sheep_response().
 read(#{bindings := #{<<"kind">> := <<"empty">>}} = _Request, _State) ->
-    {ok, sheep_http:response(#{status_code => 204})};
+    sheep_http:response(#{status_code => 204});
 
 read(#{bindings := #{<<"kind">> := <<"empty_404">>}} = _Request, _State) ->
-    {ok, sheep_http:response(#{status_code => 404})};
+    sheep_http:response(#{status_code => 404});
 
 read(#{bindings := #{<<"kind">> := <<"undefined">>}} = _Request, _State) ->
-    {ok, sheep_http:response(#{status_code => 204})};
+    sheep_http:response(#{status_code => 204});
 
 read(#{body := Body}, _State)->
     Body2 = Body#{readed => true},
-    {ok, sheep_http:response(#{status_code => 200, body => Body2})}.
+    sheep_http:response(#{status_code => 200, body => Body2}).

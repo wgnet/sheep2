@@ -120,11 +120,10 @@ custom_users_handler_test(Config) ->
     } = jiffy:decode(Body3, [return_maps]),
 
     URL4 = build_url(<<"/custom/users/custom_error">>, Config),
-    {ok, 400, _, Ref4} = hackney:request(get, URL4, ?HEADERS),
+    {ok, 500, _, Ref4} = hackney:request(get, URL4, ?HEADERS),
     {ok, Body4} = hackney:body(Ref4),
     #{
-        <<"error">> := <<"custom_error">>,
-        <<"custom_error_handler">> := <<"ok">>
+        <<"error">> := <<"custom_error">>
     } = jiffy:decode(Body4, [return_maps]),
     
 %%    URL4 = build_url(<<"/custom/users/custom_error_id">>, Config),

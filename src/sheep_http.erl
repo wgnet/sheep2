@@ -5,22 +5,14 @@
 
 -include("sheep.hrl").
 
--callback sheep_init(Request :: sheep_request(), HandlerOpts :: term()) ->
-    {Options :: map(), State :: term()}.
--callback create(Request :: sheep_request(), State :: term()) ->
-    {ok, Response :: sheep_response()} | {error, Response :: sheep_response}.
--callback read(Request :: sheep_request(), State :: term()) ->
-    {ok, Response :: sheep_response()} | {error, Response :: sheep_response}.
--callback update(Request :: sheep_request(), State :: term()) ->
-    {ok, Response :: sheep_response()} | {error, Response :: sheep_response}.
--callback delete(Request :: sheep_request(), State :: term()) ->
-    {ok, Response :: sheep_response()} | {error, Response :: sheep_response}.
--callback error_handler(Request :: sheep_request(), Error :: term()) -> sheep_response().
--callback exception_handler(Request :: sheep_request(), Error :: term()) -> sheep_response().
+-callback sheep_init(Request :: sheep_request(), HandlerOpts :: term()) -> {Options :: map(), State :: term()}.
+-callback create(Request :: sheep_request(), State :: term()) -> Response :: sheep_response().
+-callback read(Request :: sheep_request(), State :: term()) -> Response :: sheep_response().
+-callback update(Request :: sheep_request(), State :: term()) -> Response :: sheep_response().
+-callback delete(Request :: sheep_request(), State :: term()) -> Response :: sheep_response().
+-callback exception_handler(Request :: sheep_request(), Class :: atom(), Reason :: term()) -> sheep_response().
 
--optional_callbacks([sheep_init/2,
-    create/2, read/2, update/2, delete/2,
-    error_handler/2, exception_handler/2]).
+-optional_callbacks([sheep_init/2, create/2, read/2, update/2, delete/2, exception_handler/3]).
 
 -define(MIME_JSON, <<"application/json">>).
 -define(MIME_MSGPACK, <<"application/x-msgpack">>).
@@ -57,7 +49,7 @@ upgrade(CowRequest, Env, Handler, HandlerOpts) ->
             end
         catch
             Class:Reason ->
-                {#{}, handle_exception(Handler, [Request, {Class, Reason}])}
+                {#{}, handle_exception(Handler, Request, Class, Reason)}
         end,
     #{
         status_code := ResponseCode,
@@ -173,27 +165,17 @@ encode_payload(Request, #{body := Body, headers := Headers} = Response, Options)
 -spec handle(sheep_request(), module(), map(), term()) -> sheep_response().
 handle(#{method := Method} = Request, HandlerModule, SheepOpts, State) ->
     MethodsSpec = maps:get(methods_spec, SheepOpts, default_method_spec()),
-
-    Result =
-        case maps:find(Method, MethodsSpec) of
-            {ok, Handlers} when is_list(Handlers) ->
-                call_handlers(Request, HandlerModule, Handlers, State);
-            error ->
-                {ok, sheep_response:new_405()}
-        end,
-    case Result of
-        {ok, OkResponse} -> OkResponse;
-        {error, #{status_code := StatusCode} = ErrorResponse} when StatusCode < 500 ->
-            ErrorResponse;
-        {error, ErrorResponse} ->
-            handle_error(HandlerModule, [Request, ErrorResponse])
+    case maps:find(Method, MethodsSpec) of
+        {ok, Handlers} when is_list(Handlers) ->
+            call_handlers(Request, HandlerModule, Handlers, State);
+        error ->
+            {ok, sheep_response:new_405()}
     end.
 
 
--spec call_handlers(sheep_request(), atom(), list(), term()) ->
-    {ok, sheep_response()} | {error, sheep_response()}.
+-spec call_handlers(sheep_request(), atom(), list(), term()) -> sheep_response().
 call_handlers(_Request, _Module, [], _State) ->
-    {ok, sheep_response:new_204()};
+    sheep_response:new_204();
 
 call_handlers(Request, Module, [HandlerFun|Handlers], State) ->
     Fun = case erlang:is_function(HandlerFun, 2) of
@@ -201,7 +183,7 @@ call_handlers(Request, Module, [HandlerFun|Handlers], State) ->
               _ ->
                   case erlang:function_exported(Module, HandlerFun, 2) of
                       true -> fun Module:HandlerFun/2;
-                      _ -> {ok, sheep_response:new_501()}
+                      _ -> sheep_response:new_501()
                   end
           end,
     case Fun(Request, State) of
@@ -213,22 +195,17 @@ call_handlers(Request, Module, [HandlerFun|Handlers], State) ->
     end.
 
 
--spec handle_error(atom(), list()) -> sheep_response().
-handle_error(Handler, Args) ->
-    handle_error(Handler, error_handler, Args).
-
-
--spec handle_error(atom(), atom(), list()) -> sheep_response().
-handle_error(Handler, Fn, Args) ->
-    case erlang:function_exported(Handler, Fn, 2) of
+-spec handle_exception(atom(), sheep_request(), atom(), term()) -> sheep_response().
+handle_exception(Handler, Request, Class, Reason) ->
+    case erlang:function_exported(Handler, exception_handler, 3) of
         true ->
             try
-                apply(Handler, Fn, Args)
+                apply(Handler, exception_handler, [Request, Class, Reason])
             catch
                 Class:Reason ->
                     ST = erlang:get_stacktrace(),
                     error_logger:error_report([
-                        {error, invalid_handler},
+                        {error, invalid_exception_handler},
                         {handler, Handler},
                         {exception, {Class, Reason}},
                         {stacktrace, ST}
@@ -237,19 +214,13 @@ handle_error(Handler, Fn, Args) ->
             end;
         false ->
             ST = erlang:get_stacktrace(),
-            case {Fn, Args} of
-                {error_handler, [_Request, Error]} ->
-                    error_logger:error_report([{error, Error}, {stacktrace, ST}]);
-                {exception_handler, [_Request, Exception]} ->
-                    error_logger:error_report([{exception, Exception}, {stacktrace, ST}])
-            end,
+            error_logger:error_report([
+                {handler, Handler},
+                {exception, {Class, Reason}},
+                {stacktrace, ST}
+            ]),
             sheep_response:new_500()
     end.
-
-
--spec handle_exception(atom(), list()) -> sheep_response().
-handle_exception(Handler, Args) ->
-    handle_error(Handler, exception_handler, Args).
 
 
 default_decode_spec() ->
