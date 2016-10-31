@@ -7,6 +7,7 @@
     authorization/2,
     paging/2,
     validation/2,
+    stage4/2,
     read/2,
     create/2
 ]).
@@ -30,7 +31,16 @@ sheep_init(_Request, _Opts) ->
             methods_spec =>
             #{
                 <<"GET">> => [authorization, paging, read],
-                <<"POST">> => [authorization, validation, create]
+                <<"POST">> =>
+                [
+                    authorization,
+                    validation,
+                    fun(_Request, #state{steps = Steps} = State) ->
+                        {continue, State#state{steps = [<<"stage3">> | Steps]}}
+                    end,
+                    fun stage4/2,
+                    create
+                ]
             }
         },
     State = #state{},
@@ -57,6 +67,10 @@ validation(#{body := Body}, #state{steps = Steps} = State) ->
             {continue, State#state{steps = [<<"validation">> | Steps], user_id = UserID}};
         _ -> sheep_response:new(400, #{<<"error">> => <<"User ID not provided">>})
     end.
+
+
+stage4(_Request, #state{steps = Steps} = State) ->
+    {continue, State#state{steps = [<<"stage4">> | Steps]}}.
 
 
 -spec read(sheep_request(), term()) -> sheep_response().

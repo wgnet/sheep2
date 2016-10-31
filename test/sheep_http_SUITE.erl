@@ -22,7 +22,9 @@ all() ->
         status_test,
         error_status_test,
         encode_decode_test,
-        invalid_handler_test
+        invalid_handler_test,
+        invalid_encode_decode_test,
+        invalid_headers_test
     ].
 
 
@@ -101,7 +103,7 @@ pipeline_test(_Config) ->
     #{
         <<"reply_from">> := <<"create">>,
         <<"user_id">> := 25,
-        <<"steps">> := [<<"validation">>, <<"auth">>]
+        <<"steps">> := [<<"stage4">>, <<"stage3">>, <<"validation">>, <<"auth">>]
     } = jiffy:decode(Body3, [return_maps]),
 
     {400, _, Body4} = query(post, URL, H, <<"{\"id\":25}">>),
@@ -177,6 +179,37 @@ invalid_handler_test(_Config) ->
     {400, _, Body1} = query("/invalid/init/2"),
     #{<<"error">> := <<"Test exception">>} = jiffy:decode(Body1, [return_maps]),
     {500, _, <<"Internal server error">>} = query("/invalid/init/3"),
+    ok.
+
+
+invalid_encode_decode_test(_Config) ->
+    Data = <<"{answer\":42}">>,
+    {400, _, <<"Can't decode 'application/json' payload">>} =
+        query(get, "/encode_decode", ?HEADERS, Data),
+    {500, _, <<"Can't encode 'application/json' payload">>} =
+        query("/encode_decode/invalid_payload"),
+    ok.
+
+
+invalid_headers_test(_Config) ->
+    Data = #{<<"answer">> => 42},
+    JData = jiffy:encode(Data),
+    MData = msgpack:pack(Data),
+    {415, _, <<"Not supported 'content-type'">>} = query(get, "/simple", [], JData),
+    {415, _, <<"Not supported 'content-type'">>} =
+        query(get, "/simple", [{<<"content-type">>, <<"text/html">>}], JData),
+    {406, _, <<"Not acceptable">>} =
+        query(get, "/simple", [{<<"content-type">>, <<"application/x-msgpack">>}], MData),
+    {406, _, <<"Not acceptable">>} =
+        query(get, "/simple", [
+            {<<"content-type">>, <<"application/x-msgpack">>},
+            {<<"accept">>, <<"text/html">>}
+        ], MData),
+    {200, _, _} =
+        query(get, "/simple", [
+            {<<"content-type">>, <<"application/x-msgpack">>},
+            {<<"accept">>, <<"application/x-msgpack">>}
+        ], MData),
     ok.
 
 

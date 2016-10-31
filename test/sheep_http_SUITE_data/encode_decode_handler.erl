@@ -43,6 +43,13 @@ read(#{bindings := #{<<"kind">> := <<"empty_404">>}} = _Request, _State) ->
 read(#{bindings := #{<<"kind">> := <<"undefined">>}} = _Request, _State) ->
     sheep_http:response(#{status_code => 204});
 
+read(#{bindings := #{<<"kind">> := <<"invalid_payload">>}} = _Request, _State) ->
+    Body = [answer, 42],
+    sheep_http:response(#{status_code => 200, body => Body});
+
 read(#{body := Body}, _State)->
-    Body2 = Body#{readed => true},
+    Body2 = if
+                is_map(Body) -> Body#{readed => true};
+                true -> #{readed => true}
+            end,
     sheep_http:response(#{status_code => 200, body => Body2}).
