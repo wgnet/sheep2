@@ -227,6 +227,7 @@ handle_exception(Handler, Request, Class, Reason) ->
     end.
 
 
+-spec default_decode_spec() -> map().
 default_decode_spec() ->
     #{
         ?MIME_JSON =>
@@ -241,6 +242,7 @@ default_decode_spec() ->
     }.
 
 
+-spec default_encode_spec() -> map().
 default_encode_spec() ->
     #{
         ?MIME_JSON =>
@@ -254,6 +256,7 @@ default_encode_spec() ->
     }.
 
 
+-spec default_method_spec() -> map().
 default_method_spec() ->
     #{
         <<"POST">> => [create],
@@ -279,24 +282,22 @@ to_map(List) ->
       lists:map(fun({K, V}) -> {to_binary(K), V} end, List)
     ).
 
+
+-spec to_binary(atom() | list() | binary()) -> binary().
 to_binary(V) when is_atom(V) -> to_binary(atom_to_list(V));
 to_binary(V) when is_list(V) -> list_to_binary(V);
 to_binary(V) when is_binary(V) -> V.
+
 
 -spec log_response(cowboy_req:req(), http_code()) -> atom().
 log_response(Req, StatusCode) ->
     error_logger:info_msg("[http] ~s ~s - \"~s ~s ~s\" ~w ~s",
         [
-            % $remote_addr
-            inet:ntoa(element(1, element(1, cowboy_req:peer(Req)))),
-            % $host
+            inet:ntoa(element(1, element(1, cowboy_req:peer(Req)))), % remote_addr
             element(1, cowboy_req:header(<<"host">>, Req, <<"-">>)),
-            % $request
             element(1, cowboy_req:method(Req)),
             element(1, cowboy_req:path(Req)),
             element(1, cowboy_req:version(Req)),
-            % $status
             StatusCode,
-            % $http_user_agent
             element(1, cowboy_req:header(<<"user-agent">>, Req, <<"-">>))
         ]).

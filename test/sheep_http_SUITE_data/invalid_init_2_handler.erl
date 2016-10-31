@@ -5,6 +5,7 @@
 
 -include("sheep.hrl").
 
+-spec init(atom(), cowboy_req:req(), term()) -> tuple().
 init(_Transport, Req, _Opts) ->
     {upgrade, protocol, sheep_http, Req, []}.
 

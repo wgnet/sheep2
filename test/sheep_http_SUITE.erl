@@ -4,6 +4,8 @@
 
 -compile([export_all]).
 
+-include("sheep.hrl").
+
 -define(HEADERS, [
     {<<"content-type">>, <<"application/json">>},
     {<<"accept">>, <<"application/json">>}
@@ -14,6 +16,8 @@
     {<<"accept">>, <<"application/x-msgpack">>}
 ]).
 
+
+-spec all() -> [atom()].
 all() ->
     [
         get_test,
@@ -30,6 +34,7 @@ all() ->
 
 %%% Init
 
+-spec init_per_suite(list()) -> list().
 init_per_suite(Config) ->
     application:ensure_all_started(cowboy),
     hackney:start(),
@@ -57,6 +62,7 @@ init_per_suite(Config) ->
     Config.
 
 
+-spec end_per_suite(list()) -> ok.
 end_per_suite(_Config) ->
     cowboy:stop_listener(sheep_test_server),
     ok.
@@ -64,6 +70,7 @@ end_per_suite(_Config) ->
 
 %%% Tests
 
+-spec get_test(list()) -> ok.
 get_test(_Config) ->
     {200, _, Body1} = query("/simple"),
     #{<<"reply_from">> := <<"read">>} = jiffy:decode(Body1, [return_maps]),
@@ -76,6 +83,7 @@ get_test(_Config) ->
     ok.
 
 
+-spec post_put_delete_test(list()) -> ok.
 post_put_delete_test(_Config) ->
     {200, _, Body1} = query(post, "/simple"),
     #{<<"reply_from">> := <<"create">>} = jiffy:decode(Body1, [return_maps]),
@@ -88,6 +96,7 @@ post_put_delete_test(_Config) ->
     ok.
 
 
+-spec pipeline_test(list()) -> ok.
 pipeline_test(_Config) ->
     URL = "/pipeline/users",
     H = [{<<"x-auth-token">>, <<"cft6GLEhLANgstU8sZdL">>} | ?HEADERS],
@@ -111,6 +120,7 @@ pipeline_test(_Config) ->
     ok.
 
 
+-spec status_test(list()) -> ok.
 status_test(_Config) ->
     {200, _, Body0} = query("/status/users"),
     [
@@ -132,6 +142,7 @@ status_test(_Config) ->
     ok.
 
 
+-spec error_status_test(list()) -> ok.
 error_status_test(_Config) ->
     {200, _, _} = query("/e/status/users"),
     {404, _, _} = query("/e/status/users/2"),
@@ -149,6 +160,7 @@ error_status_test(_Config) ->
     ok.
 
 
+-spec encode_decode_test(list()) -> ok.
 encode_decode_test(_Config) ->
     Data = #{<<"answer">> => 42},
     JData = jiffy:encode(Data),
@@ -169,6 +181,7 @@ encode_decode_test(_Config) ->
     ok.
 
 
+-spec invalid_handler_test(list()) -> ok.
 invalid_handler_test(_Config) ->
     Path = "/invalid",
     {204, _, <<>>} = query(get, Path), % empty list of callbacks
@@ -182,6 +195,7 @@ invalid_handler_test(_Config) ->
     ok.
 
 
+-spec invalid_encode_decode_test(list()) -> ok.
 invalid_encode_decode_test(_Config) ->
     Data = <<"{answer\":42}">>,
     {400, _, <<"Can't decode 'application/json' payload">>} =
@@ -191,6 +205,7 @@ invalid_encode_decode_test(_Config) ->
     ok.
 
 
+-spec invalid_headers_test(list()) -> ok.
 invalid_headers_test(_Config) ->
     Data = #{<<"answer">> => 42},
     JData = jiffy:encode(Data),
@@ -215,15 +230,19 @@ invalid_headers_test(_Config) ->
 
 %%% Utils
 
+-spec query(string()) -> {http_code(), list(), binary()}.
 query(Path) ->
     query(get, Path).
 
+-spec query(atom(), string()) -> {http_code(), list(), binary()}.
 query(Method, Path) ->
     query(Method, Path, ?HEADERS).
 
+-spec query(atom(), string(), list()) -> {http_code(), list(), binary()}.
 query(Method, Path, Headers) ->
     query(Method, Path, Headers, <<>>).
 
+-spec query(atom(), string(), list(), binary()) -> {http_code(), list(), binary()}.
 query(Method, Path, Headers, Data) ->
     Port = integer_to_list(ranch:get_port(sheep_test_server)),
     FullURL = "http://localhost:" ++ Port ++ Path,
