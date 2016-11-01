@@ -10,13 +10,13 @@ init(_Transport, Req, _Opts) ->
     {upgrade, protocol, sheep_http, Req, []}.
 
 
--spec sheep_init(sheep_request(), term()) -> {map(), term()}.
+-spec sheep_init(#sheep_request{}, term()) -> {#sheep_options{}, term()}.
 sheep_init(_Request, _Opts) ->
     throw(test_exception),
-    {#{}, []}.
+    {#sheep_options{}, []}.
 
 
--spec exception_handler(sheep_request(), atom(), term()) -> sheep_response().
+-spec exception_handler(#sheep_request{}, atom(), term()) -> #sheep_response{}.
 exception_handler(_Request, throw, test_exception) ->
     throw(another_test_exception),
-    sheep_http:response(#{status_code => 400}).
+    #sheep_response{status_code = 400}.
