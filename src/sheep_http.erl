@@ -59,7 +59,7 @@ upgrade(CowRequest, Env, Handler, HandlerOpts) ->
     } = encode_payload(Request, Response, Options),
 
     {ok, CowResponse} = cowboy_req:reply(ResponseCode, ResponseHeaders, Body, CowRequest),
-    log_response(CowResponse, ResponseCode),
+    log_query(CowResponse, ResponseCode),
     {ok, CowResponse, Env}.
 
 
@@ -283,15 +283,23 @@ to_binary(V) when is_list(V) -> list_to_binary(V);
 to_binary(V) when is_binary(V) -> V.
 
 
--spec log_response(cowboy_req:req(), http_code()) -> atom().
-log_response(Req, StatusCode) ->
-    error_logger:info_msg("[http] ~s ~s - \"~s ~s ~s\" ~w ~s",
+-spec log_query(cowboy_req:req(), http_code()) -> ok.
+log_query(Req, StatusCode) ->
+    case application:get_env(sheep2, log_query) of
+        {ok, true} -> do_log_query(Req, StatusCode);
+        _ -> ignore
+    end.
+
+do_log_query(Req, StatusCode) ->
+    {{RAddr, _RPort}, _} = cowboy_req:peer(Req),
+    RemoteAddr = inet:ntoa(RAddr),
+    {Host, _} = cowboy_req:header(<<"host">>, Req, <<"-">>),
+    {Method, _} = cowboy_req:method(Req),
+    {Path, _} = cowboy_req:path(Req),
+    {UserAgent, _} = cowboy_req:header(<<"user-agent">>, Req, <<"-">>),
+    error_logger:info_msg("[sheep2] ~s ~s - \"~s ~s\" ~w ~s",
         [
-            inet:ntoa(element(1, element(1, cowboy_req:peer(Req)))), % remote_addr
-            element(1, cowboy_req:header(<<"host">>, Req, <<"-">>)),
-            element(1, cowboy_req:method(Req)),
-            element(1, cowboy_req:path(Req)),
-            element(1, cowboy_req:version(Req)),
-            StatusCode,
-            element(1, cowboy_req:header(<<"user-agent">>, Req, <<"-">>))
+            RemoteAddr, Host,
+            Method, Path,
+            StatusCode, UserAgent
         ]).

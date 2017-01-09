@@ -8,5 +8,8 @@
         cowboy,
         jiffy,
         msgpack
+    ]},
+    {env, [
+        {log_query, true}
     ]}
 ]}.
