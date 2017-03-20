@@ -116,6 +116,8 @@ encode_payload(_Request, #sheep_response{body = Body} = Response, _Options) when
     Response;
 encode_payload(_Request, #sheep_response{status_code = 204} = Response, _Options) ->
     Response#sheep_response{body = <<>>};
+encode_payload(_Request, #sheep_response{body = undefined} = Response, _Options) ->
+    Response#sheep_response{body = <<>>};
 encode_payload(Request, #sheep_response{body = Body, headers = Headers} = Response, Options) ->
     AcceptContentType = get_header(<<"accept">>, Request),
     EncodeSpec = encode_spec(Options),
