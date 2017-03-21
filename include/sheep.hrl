@@ -11,7 +11,7 @@
 -record(sheep_response, {
     status_code = 500 :: http_code(),
     headers = [] :: list(),
-    body = <<>> :: map() | [map()] | binary()
+    body = <<>> :: map() | [map()] | binary() | undefined
 }).
 
 -record(sheep_options, {

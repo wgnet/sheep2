@@ -24,15 +24,23 @@
 -spec upgrade(cowboy_req:req(), cowboy_middleware:env(), module(), term()) ->
                      {ok, cowboy_req:req(), cowboy_middleware:env()}.
 upgrade(CowRequest, Env, Handler, HandlerOpts) ->
+    {Method, CowRequest1} = cowboy_req:method(CowRequest),
+    {Headers, CowRequest2} = cowboy_req:headers(CowRequest1),
+    {Bindings, CowRequest3} = cowboy_req:bindings(CowRequest2),
+    {Query, CowRequest4} = cowboy_req:qs_vals(CowRequest3),
+    {Body, CowRequest5} = case cowboy_req:has_body(CowRequest4) of
+                              true ->
+                                  {ok, Body0, CowReq5} = cowboy_req:body(CowRequest4),
+                                  {Body0, CowReq5};
+                              false ->
+                                  {<<>>, CowRequest4}
+                          end,
     Request = #sheep_request{
-        method = element(1, cowboy_req:method(CowRequest)),
-        headers = element(1, cowboy_req:headers(CowRequest)),
-        bindings = to_map(element(1, cowboy_req:bindings(CowRequest))),
-        query = to_map(element(1, cowboy_req:qs_vals(CowRequest))),
-        body = case cowboy_req:has_body(CowRequest) of
-                    true -> {ok, Body0, _} = cowboy_req:body(CowRequest), Body0;
-                    false -> <<>>
-                end
+        method = Method,
+        headers = Headers,
+        bindings = to_map(Bindings),
+        query = to_map(Query),
+        body = Body
     },
 
     {Options, Response} =
@@ -42,7 +50,7 @@ upgrade(CowRequest, Env, Handler, HandlerOpts) ->
                     true -> Handler:sheep_init(Request, HandlerOpts);
                     false -> {#sheep_options{}, []}
                 end,
-            case decode_payload(Request, Options0) of
+            case decode_payload(Handler, Request, Options0) of
                 {ok, Request2} ->
                     Response0 = handle(Request2, Handler, Options0, State),
                     {Options0, Response0};
@@ -55,10 +63,10 @@ upgrade(CowRequest, Env, Handler, HandlerOpts) ->
     #sheep_response{
         status_code = ResponseCode,
         headers = ResponseHeaders,
-        body = Body
-    } = encode_payload(Request, Response, Options),
+        body = ResponseBody
+    } = encode_payload(Handler, Request, Response, Options),
 
-    {ok, CowResponse} = cowboy_req:reply(ResponseCode, ResponseHeaders, Body, CowRequest),
+    {ok, CowResponse} = cowboy_req:reply(ResponseCode, ResponseHeaders, ResponseBody, CowRequest5),
     log_query(CowResponse, ResponseCode),
     {ok, CowResponse, Env}.
 
@@ -77,10 +85,11 @@ get_header(Name, #sheep_request{headers = Headers}, Default) ->
 
 %%% Inner functions
 
--spec decode_payload(#sheep_request{}, #sheep_options{}) -> {ok, #sheep_request{}} | {error, #sheep_response{}}.
-decode_payload(#sheep_request{body = <<>>} = Request, _Options) ->
+-spec decode_payload(module(), #sheep_request{}, #sheep_options{}) ->
+                            {ok, #sheep_request{}} | {error, #sheep_response{}}.
+decode_payload(_, #sheep_request{body = <<>>} = Request, _Options) ->
     {ok, Request};
-decode_payload(#sheep_request{body = Body} = Request, Options) ->
+decode_payload(Handler, #sheep_request{body = Body} = Request, Options) ->
     RawContentType = get_header(<<"content-type">>, Request),
     CleanContentType = clean_content_type(RawContentType),
     DecodeSpec = decode_spec(Options),
@@ -100,23 +109,29 @@ decode_payload(#sheep_request{body = Body} = Request, Options) ->
                         {stacktrace, ST}
                     ]),
                     E = <<"Can't decode '", RawContentType/binary, "' payload">>,
-                    {error, #sheep_response{status_code = 400, body = E}}
+                    {error, handle_internal_error(
+                              Handler, Request, {request_decode_error, Class, Reason, RawContentType},
+                              #sheep_response{status_code = 400, body = E})}
             end;
         error ->
             error_logger:info_report([
                 {error, "not supported"},
                 {<<"content-type">>, RawContentType}
             ]),
-            {error, #sheep_response{status_code = 415, body = <<"Not supported 'content-type'">>}}
+            {error, handle_internal_error(
+                      Handler, Request, {unsupported_content_type, RawContentType},
+                      #sheep_response{status_code = 415, body = <<"Not supported 'content-type'">>})}
     end.
 
 
--spec encode_payload(#sheep_request{}, #sheep_response{}, #sheep_options{}) -> #sheep_response{}.
-encode_payload(_Request, #sheep_response{body = Body} = Response, _Options) when is_binary(Body) ->
+-spec encode_payload(module(), #sheep_request{}, #sheep_response{}, #sheep_options{}) -> #sheep_response{}.
+encode_payload(_Handler, _Request, #sheep_response{body = Body} = Response, _Options) when is_binary(Body) ->
     Response;
-encode_payload(_Request, #sheep_response{status_code = 204} = Response, _Options) ->
+encode_payload(_Handler, _Request, #sheep_response{status_code = 204} = Response, _Options) ->
     Response#sheep_response{body = <<>>};
-encode_payload(Request, #sheep_response{body = Body, headers = Headers} = Response, Options) ->
+encode_payload(_Handler, _Request, #sheep_response{body = undefined} = Response, _Options) ->
+    Response#sheep_response{body = <<>>};
+encode_payload(Handler, Request, #sheep_response{body = Body, headers = Headers} = Response, Options) ->
     AcceptContentType = get_header(<<"accept">>, Request),
     EncodeSpec = encode_spec(Options),
 
@@ -142,14 +157,18 @@ encode_payload(Request, #sheep_response{body = Body, headers = Headers} = Respon
                         {stacktrace, ST}
                     ]),
                     E = <<"Can't encode '", AcceptContentType/binary, "' payload">>,
-                    #sheep_response{status_code = 500, body = E}
+                    handle_internal_error(
+                      Handler, Request, {response_encode_error, Class, Reason, AcceptContentType},
+                      #sheep_response{status_code = 500, body = E})
             end;
         error ->
             error_logger:info_report([
                 {error, "not acceptable"},
                 {<<"content-type">>, AcceptContentType}
             ]),
-            #sheep_response{status_code = 406, body = <<"Not acceptable">>}
+            handle_internal_error(
+              Handler, Request, {unsupported_accept, AcceptContentType},
+              sheep_response:new_406())
     end.
 
 
@@ -160,7 +179,7 @@ handle(#sheep_request{method = Method} = Request, HandlerModule, Options, State)
         {ok, Handlers} when is_list(Handlers) ->
             call_handlers(Handlers, Request, HandlerModule, State);
         error ->
-            sheep_response:new_405()
+            handle_internal_error(HandlerModule, Request, method_not_allowed, sheep_response:new_405())
     end.
 
 
@@ -174,7 +193,10 @@ call_handlers([Handler | Handlers], Request, Module, State) ->
         _ ->
             case erlang:function_exported(Module, Handler, 2) of
                 true -> call_fun(fun Module:Handler/2, Handlers, Request, Module, State);
-                _ -> sheep_response:new_501()
+                _ ->
+                    handle_internal_error(
+                      Module, Request, {handler_callback_missing, Module, Handler},
+                      sheep_response:new_501())
             end
     end.
 
@@ -215,6 +237,27 @@ handle_exception(Handler, Request, Class, Reason) ->
                 {stacktrace, ST2}
             ]),
             sheep_response:new_500()
+    end.
+
+
+handle_internal_error(Handler, Request, Reason, Default) ->
+    case erlang:function_exported(Handler, exception_handler, 3) of
+        true ->
+            try
+                Handler:exception_handler(Request, sheep_internal_error, Reason)
+            catch
+                Class1:Reason1 ->
+                    ST1 = erlang:get_stacktrace(),
+                    error_logger:error_report([
+                        {error, invalid_exception_handler},
+                        {handler, Handler},
+                        {exception, {Class1, Reason1}},
+                        {stacktrace, ST1}
+                    ]),
+                    Default
+            end;
+        false ->
+            Default
     end.
 
 

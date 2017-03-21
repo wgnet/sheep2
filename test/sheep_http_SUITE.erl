@@ -28,7 +28,8 @@ all() ->
         encode_decode_test,
         invalid_handler_test,
         invalid_encode_decode_test,
-        invalid_headers_test
+        invalid_headers_test,
+        internal_errors_test
     ].
 
 
@@ -49,7 +50,8 @@ init_per_suite(Config) ->
             {"/invalid", invalid_handler, []},
             {"/invalid/init", invalid_init_handler, []},
             {"/invalid/init/2", invalid_init_2_handler, []},
-            {"/invalid/init/3", invalid_init_3_handler, []}
+            {"/invalid/init/3", invalid_init_3_handler, []},
+            {"/internal_error/:type", internal_error_handler, []}
         ]}
     ]),
 
@@ -227,6 +229,53 @@ invalid_headers_test(_Config) ->
         ], MData),
     ok.
 
+internal_errors_test(_Config) ->
+    {400, _, ResBody1} =
+        query(post, "/internal_error/request_decode_error",
+          [{<<"content-type">>, <<"application/json">>}],
+          <<"{">>),
+    #{<<"type">> := <<"request_decode_error">>,
+      <<"content_type">> := <<"application/json">>} = jiffy:decode(ResBody1, [return_maps]),
+
+    {415, _, ResBody2} =
+        query(post, "/internal_error/request_decode_error",
+          [{<<"content-type">>, <<"text/plain">>}],
+          <<"wasd">>),
+    #{<<"type">> := <<"unsupported_content_type">>,
+      <<"content_type">> := <<"text/plain">>} = jiffy:decode(ResBody2, [return_maps]),
+
+    {500, _, ResBody3} =
+        query(post, "/internal_error/response_encode_error",
+          [{<<"content-type">>, <<"application/json">>},
+           {<<"accept">>, <<"application/json">>}],
+          <<"{}">>),
+    #{<<"type">> := <<"response_encode_error">>,
+      <<"content_type">> := <<"application/json">>} = jiffy:decode(ResBody3, [return_maps]),
+
+    {406, _, ResBody4} =
+        query(post, "/internal_error/unsupported_accept",
+          [{<<"content-type">>, <<"application/json">>},
+           {<<"accept">>, <<"text/plain">>}],
+          <<"{}">>),
+    #{<<"type">> := <<"unsupported_accept">>,
+      <<"content_type">> := <<"text/plain">>} = jiffy:decode(ResBody4, [return_maps]),
+
+    {405, _, ResBody5} =
+        query(patch, "/internal_error/method_not_allowed",
+          [{<<"content-type">>, <<"application/json">>},
+           {<<"accept">>, <<"application/json">>}],
+          <<"{}">>),
+    #{<<"type">> := <<"method_not_allowed">>} = jiffy:decode(ResBody5, [return_maps]),
+
+    {501, _, ResBody6} =
+        query(get, "/internal_error/handler_callback_missing",
+          [{<<"content-type">>, <<"application/json">>},
+           {<<"accept">>, <<"application/json">>}],
+          <<"{}">>),
+    #{<<"type">> := <<"handler_callback_missing">>,
+      <<"module">> := <<"internal_error_handler">>,
+      <<"handler">> := <<"read">>} = jiffy:decode(ResBody6, [return_maps]),
+    ok.
 
 %%% Utils
 
