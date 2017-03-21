@@ -5,13 +5,13 @@
     headers = [] :: list(),
     query = #{} :: map(),
     bindings = #{} :: map(),
-    body = <<>> :: map() | binary()
+    body = <<>> :: map() | [map()] | binary()
 }).
 
 -record(sheep_response, {
     status_code = 500 :: http_code(),
     headers = [] :: list(),
-    body = <<>> :: map() | binary() | undefined
+    body = <<>> :: map() | [map()] | binary() | undefined
 }).
 
 -record(sheep_options, {
