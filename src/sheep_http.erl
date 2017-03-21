@@ -24,15 +24,23 @@
 -spec upgrade(cowboy_req:req(), cowboy_middleware:env(), module(), term()) ->
                      {ok, cowboy_req:req(), cowboy_middleware:env()}.
 upgrade(CowRequest, Env, Handler, HandlerOpts) ->
+    {Method, CowRequest1} = cowboy_req:method(CowRequest),
+    {Headers, CowRequest2} = cowboy_req:headers(CowRequest1),
+    {Bindings, CowRequest3} = cowboy_req:bindings(CowRequest2),
+    {Query, CowRequest4} = cowboy_req:qs_vals(CowRequest3),
+    {Body, CowRequest5} = case cowboy_req:has_body(CowRequest4) of
+                              true ->
+                                  {ok, Body0, CowReq5} = cowboy_req:body(CowRequest4),
+                                  {Body0, CowReq5};
+                              false ->
+                                  {<<>>, CowRequest4}
+                          end,
     Request = #sheep_request{
-        method = element(1, cowboy_req:method(CowRequest)),
-        headers = element(1, cowboy_req:headers(CowRequest)),
-        bindings = to_map(element(1, cowboy_req:bindings(CowRequest))),
-        query = to_map(element(1, cowboy_req:qs_vals(CowRequest))),
-        body = case cowboy_req:has_body(CowRequest) of
-                    true -> {ok, Body0, _} = cowboy_req:body(CowRequest), Body0;
-                    false -> <<>>
-                end
+        method = Method,
+        headers = Headers,
+        bindings = to_map(Bindings),
+        query = to_map(Query),
+        body = Body
     },
 
     {Options, Response} =
@@ -58,7 +66,7 @@ upgrade(CowRequest, Env, Handler, HandlerOpts) ->
         body = Body
     } = encode_payload(Request, Response, Options),
 
-    {ok, CowResponse} = cowboy_req:reply(ResponseCode, ResponseHeaders, Body, CowRequest),
+    {ok, CowResponse} = cowboy_req:reply(ResponseCode, ResponseHeaders, ResponseBody, CowRequest5),
     log_query(CowResponse, ResponseCode),
     {ok, CowResponse, Env}.
 
