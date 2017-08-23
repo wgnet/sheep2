@@ -123,9 +123,6 @@ decode_payload(Handler, #sheep_request{body = Body} = Request, Options) ->
                       #sheep_response{status_code = 415, body = <<"Not supported 'content-type'">>})}
     end.
 
-xxx(_) ->
-    ok.
-
 -spec encode_payload(module(), #sheep_request{}, #sheep_response{}, #sheep_options{}) -> #sheep_response{}.
 encode_payload(_Handler, _Request, #sheep_response{body = Body} = Response, _Options) when is_binary(Body) ->
     Response;
