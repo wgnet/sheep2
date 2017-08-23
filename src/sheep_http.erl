@@ -123,6 +123,8 @@ decode_payload(Handler, #sheep_request{body = Body} = Request, Options) ->
                       #sheep_response{status_code = 415, body = <<"Not supported 'content-type'">>})}
     end.
 
+xxx(_) ->
+    ok.
 
 -spec encode_payload(module(), #sheep_request{}, #sheep_response{}, #sheep_options{}) -> #sheep_response{}.
 encode_payload(_Handler, _Request, #sheep_response{body = Body} = Response, _Options) when is_binary(Body) ->
@@ -148,13 +150,12 @@ encode_payload(Handler, Request, #sheep_response{body = Body, headers = Headers}
                     handle_internal_error(
                         Handler, Request, {unsupported_accept, AcceptContentType},
                         sheep_response:new_406()
-                     );
-                [{AcceptContentType, _} | _] ->
+                    );
+                [{AcceptContentTypeChoosen, Fn} | _] ->
                     try
-                        {ok, Fn} = maps:find(AcceptContentType, EncodeSpec),
                         Headers2 = lists:keystore(
                             <<"content-type">>, 1, Headers,
-                            {<<"content-type">>, AcceptContentType}
+                            {<<"content-type">>, AcceptContentTypeChoosen}
                         ),
                         Response#sheep_response{
                             headers = Headers2,
