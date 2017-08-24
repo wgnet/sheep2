@@ -138,13 +138,18 @@ encode_payload(Handler, Request, #sheep_response{body = Body, headers = Headers}
     case maps:find(AcceptContentType, EncodeSpec) of
         {ok, Fn} ->
             try
-                Headers2 = lists:keystore(
-                    <<"content-type">>, 1, Headers,
-                    {<<"content-type">>, AcceptContentType}
-                ),
+                Headers2 = case AcceptContentType of
+                               undefined -> Headers;
+                               _ ->
+                                   lists:keystore(
+                                       <<"content-type">>, 1, Headers,
+                                       {<<"content-type">>, AcceptContentType}
+                                   )
+                           end,
+                Body2 = Fn(Body),
                 Response#sheep_response{
                     headers = Headers2,
-                    body = Fn(Body)
+                    body = Body2
                 }
             catch
                 Class:Reason ->
