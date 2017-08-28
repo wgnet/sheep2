@@ -93,8 +93,18 @@ decode_payload(Handler, #sheep_request{body = Body} = Request, Options) ->
     RawContentType = get_header(<<"content-type">>, Request),
     CleanContentType = clean_content_type(RawContentType),
     DecodeSpec = decode_spec(Options),
+    DefaultDec = maps:find(undefined, DecodeSpec),
+    DefinedDec = maps:find(CleanContentType, DecodeSpec),
 
-    case maps:find(CleanContentType, DecodeSpec) of
+    case get_decoder(DefinedDec, DefaultDec) of
+        error ->
+            error_logger:info_report([
+                {error, "not supported"},
+                {<<"content-type">>, RawContentType}
+            ]),
+            {error, handle_internal_error(
+                      Handler, Request, {unsupported_content_type, RawContentType},
+                      #sheep_response{status_code = 415, body = <<"Not supported 'content-type'">>})};
         {ok, Fn} ->
             try
                 {ok, Request#sheep_request{body = Fn(Body)}}
@@ -112,15 +122,7 @@ decode_payload(Handler, #sheep_request{body = Body} = Request, Options) ->
                     {error, handle_internal_error(
                               Handler, Request, {request_decode_error, Class, Reason, RawContentType},
                               #sheep_response{status_code = 400, body = E})}
-            end;
-        error ->
-            error_logger:info_report([
-                {error, "not supported"},
-                {<<"content-type">>, RawContentType}
-            ]),
-            {error, handle_internal_error(
-                      Handler, Request, {unsupported_content_type, RawContentType},
-                      #sheep_response{status_code = 415, body = <<"Not supported 'content-type'">>})}
+            end
     end.
 
 -spec encode_payload(module(), #sheep_request{}, #sheep_response{}, #sheep_options{}) -> #sheep_response{}.
@@ -136,9 +138,9 @@ encode_payload(Handler, Request, #sheep_response{body = Body, headers = Headers}
     CleanAcceptContentTypeKeys = maps:keys(CleanAcceptContentType),
     EncodeSpec = encode_spec(Options),
     MapIntersection = maps:with(CleanAcceptContentTypeKeys, EncodeSpec),
-    DefaultEnc = maps:get(undefined, EncodeSpec, error),
+    DefaultEnc = maps:find(undefined, EncodeSpec),
 
-    case sort_by_quality(MapIntersection, DefaultEnc) of
+    case sort_by_quality(maps:to_list(MapIntersection), DefaultEnc) of
         [] ->
             error_logger:info_report([
                 {error, "not acceptable"},
@@ -148,7 +150,7 @@ encode_payload(Handler, Request, #sheep_response{body = Body, headers = Headers}
                 Handler, Request, {unsupported_accept, AcceptContentType},
                 sheep_response:new_406()
             );
-        {[{AcceptContentTypeChoosen, Fn} | _], _} ->
+        [{AcceptContentTypeChoosen, Fn} | _] ->
             try
                 Headers2 = lists:keystore(
                     <<"content-type">>, 1, Headers,
@@ -318,6 +320,9 @@ to_num(Int) when is_integer(Int) -> Int;
 to_num(Float) when is_float(Float) -> Float;
 to_num(_) -> 0.
 
+get_decoder(error, error) -> error;
+get_decoder({ok, ClientDefinedFn}, _) -> {ok, ClientDefinedFn};
+get_decoder(_, {ok, DefaultFn}) -> {ok, DefaultFn}.
 
 parse_quality(Q) ->
     try
@@ -327,18 +332,14 @@ parse_quality(Q) ->
     end.
 
 sort_by_quality([], error) -> [];
-sort_by_quality(AcceptTypes, DefaultEnc) ->
-    SortedAcceptTypes =
-        lists:sort(
-            fun ({_, Opt1P}, {_, Opt2P}) ->
-                Q1 = proplists:get_value(<<"q">>, Opt1P, 1),
-                Q2 = proplists:get_value(<<"q">>, Opt2P, 1),
-                parse_quality(Q1) > parse_quality(Q2)
-            end, maps:to_list(AcceptTypes)),
-    case SortedAcceptTypes of
-        [] -> [{<<"*/*">>, DefaultEnc}];
-        _ -> SortedAcceptTypes
-    end.
+sort_by_quality([], {ok, DefaultEnc}) -> [{<<"*/*">>, DefaultEnc}];
+sort_by_quality(AcceptTypes, _) ->
+    lists:sort(
+        fun ({_, Opt1P}, {_, Opt2P}) ->
+            Q1 = proplists:get_value(<<"q">>, Opt1P, 1),
+            Q2 = proplists:get_value(<<"q">>, Opt2P, 1),
+            parse_quality(Q1) > parse_quality(Q2)
+        end, AcceptTypes).
 
 clean_accept_content_type(undefined) -> #{};
 clean_accept_content_type(BinAccept) when is_binary(BinAccept) ->
