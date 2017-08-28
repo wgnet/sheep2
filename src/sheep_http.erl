@@ -123,7 +123,6 @@ decode_payload(Handler, #sheep_request{body = Body} = Request, Options) ->
                       #sheep_response{status_code = 415, body = <<"Not supported 'content-type'">>})}
     end.
 
-
 -spec encode_payload(module(), #sheep_request{}, #sheep_response{}, #sheep_options{}) -> #sheep_response{}.
 encode_payload(_Handler, _Request, #sheep_response{body = Body} = Response, _Options) when is_binary(Body) ->
     Response;
@@ -133,23 +132,31 @@ encode_payload(_Handler, _Request, #sheep_response{body = undefined} = Response,
     Response#sheep_response{body = <<>>};
 encode_payload(Handler, Request, #sheep_response{body = Body, headers = Headers} = Response, Options) ->
     AcceptContentType = get_header(<<"accept">>, Request),
+    CleanAcceptContentType = clean_accept_content_type(AcceptContentType),
+    CleanAcceptContentTypeKeys = maps:keys(CleanAcceptContentType),
     EncodeSpec = encode_spec(Options),
+    MapIntersection = maps:with(CleanAcceptContentTypeKeys, EncodeSpec),
+    DefaultEnc = maps:get(undefined, EncodeSpec, error),
 
-    case maps:find(AcceptContentType, EncodeSpec) of
-        {ok, Fn} ->
+    case sort_by_quality(MapIntersection, DefaultEnc) of
+        [] ->
+            error_logger:info_report([
+                {error, "not acceptable"},
+                {<<"content-type">>, AcceptContentType}
+            ]),
+            handle_internal_error(
+                Handler, Request, {unsupported_accept, AcceptContentType},
+                sheep_response:new_406()
+            );
+        {[{AcceptContentTypeChoosen, Fn} | _], _} ->
             try
-                Headers2 = case AcceptContentType of
-                               undefined -> Headers;
-                               _ ->
-                                   lists:keystore(
-                                       <<"content-type">>, 1, Headers,
-                                       {<<"content-type">>, AcceptContentType}
-                                   )
-                           end,
-                Body2 = Fn(Body),
+                Headers2 = lists:keystore(
+                    <<"content-type">>, 1, Headers,
+                    {<<"content-type">>, AcceptContentTypeChoosen}
+                ),
                 Response#sheep_response{
                     headers = Headers2,
-                    body = Body2
+                    body = Fn(Body)
                 }
             catch
                 Class:Reason ->
@@ -163,19 +170,11 @@ encode_payload(Handler, Request, #sheep_response{body = Body, headers = Headers}
                     ]),
                     E = <<"Can't encode '", AcceptContentType/binary, "' payload">>,
                     handle_internal_error(
-                      Handler, Request, {response_encode_error, Class, Reason, AcceptContentType},
-                      #sheep_response{status_code = 500, body = E})
-            end;
-        error ->
-            error_logger:info_report([
-                {error, "not acceptable"},
-                {<<"content-type">>, AcceptContentType}
-            ]),
-            handle_internal_error(
-              Handler, Request, {unsupported_accept, AcceptContentType},
-              sheep_response:new_406())
+                        Handler, Request, {response_encode_error, Class, Reason, AcceptContentType},
+                        #sheep_response{status_code = 500, body = E}
+                    )
+            end
     end.
-
 
 -spec handle(#sheep_request{}, module(), #sheep_options{}, term()) -> #sheep_response{}.
 handle(#sheep_request{method = Method} = Request, HandlerModule, Options, State) ->
@@ -307,6 +306,59 @@ method_spec(#sheep_options{method_spec = undefined}) ->
         <<"DELETE">> => [delete]
     }.
 
+
+to_num(Bin) when is_binary(Bin) ->
+    to_num(binary_to_list(Bin));
+to_num(Lst) when is_list(Lst) ->
+    case string:to_float(Lst) of
+        {error,no_float} -> list_to_integer(Lst);
+        {F,_Rest} -> F
+    end;
+to_num(Int) when is_integer(Int) -> Int;
+to_num(Float) when is_float(Float) -> Float;
+to_num(_) -> 0.
+
+
+parse_quality(Q) ->
+    try
+        to_num(Q)
+    catch error:badarg ->
+        0
+    end.
+
+sort_by_quality([], error) -> [];
+sort_by_quality(AcceptTypes, DefaultEnc) ->
+    SortedAcceptTypes =
+        lists:sort(
+            fun ({_, Opt1P}, {_, Opt2P}) ->
+                Q1 = proplists:get_value(<<"q">>, Opt1P, 1),
+                Q2 = proplists:get_value(<<"q">>, Opt2P, 1),
+                parse_quality(Q1) > parse_quality(Q2)
+            end, maps:to_list(AcceptTypes)),
+    case SortedAcceptTypes of
+        [] -> [{<<"*/*">>, DefaultEnc}];
+        _ -> SortedAcceptTypes
+    end.
+
+clean_accept_content_type(undefined) -> #{};
+clean_accept_content_type(BinAccept) when is_binary(BinAccept) ->
+    Stripped = binary:replace(BinAccept, <<" ">>, <<>>, [global]),
+    lists:foldl(fun parse_accept_option/2, #{}, binary:split(Stripped, <<",">>, [global])).
+
+parse_accept_option(OptionBin, Acc) ->
+    [Option | RawParams] = binary:split(OptionBin, <<";">>, [global]),
+    case Option of
+        <<>> -> Acc;
+        _ ->
+            Params = lists:filtermap(fun parse_accept_param/1, RawParams),
+            Acc#{Option => Params}
+    end.
+
+parse_accept_param(Param) ->
+    case binary:split(Param, <<"=">>, [global]) of
+        [Name, Value] -> {true, {Name, Value}};
+        _ -> false
+    end.
 
 -spec clean_content_type(binary() | undefined) -> binary() | undefined.
 clean_content_type(undefined) -> undefined;
