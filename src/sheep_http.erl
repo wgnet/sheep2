@@ -135,48 +135,46 @@ encode_payload(Handler, Request, #sheep_response{body = Body, headers = Headers}
     CleanAcceptContentType = clean_accept_content_type(AcceptContentType),
     CleanAcceptContentTypeKeys = maps:keys(CleanAcceptContentType),
     EncodeSpec = encode_spec(Options),
+    MapIntersection = maps:with(CleanAcceptContentTypeKeys, EncodeSpec),
+    DefaultEnc = maps:get(undefined, EncodeSpec, error),
 
-    case maps:with(CleanAcceptContentTypeKeys, EncodeSpec) of
-        MapIntersection ->
-            case sort_by_quality(MapIntersection) of
-                [] ->
+    case sort_by_quality(MapIntersection, DefaultEnc) of
+        [] ->
+            error_logger:info_report([
+                {error, "not acceptable"},
+                {<<"content-type">>, AcceptContentType}
+            ]),
+            handle_internal_error(
+                Handler, Request, {unsupported_accept, AcceptContentType},
+                sheep_response:new_406()
+            );
+        {[{AcceptContentTypeChoosen, Fn} | _], _} ->
+            try
+                Headers2 = lists:keystore(
+                    <<"content-type">>, 1, Headers,
+                    {<<"content-type">>, AcceptContentTypeChoosen}
+                ),
+                Response#sheep_response{
+                    headers = Headers2,
+                    body = Fn(Body)
+                }
+            catch
+                Class:Reason ->
+                    ST = erlang:get_stacktrace(),
                     error_logger:info_report([
-                        {error, "not acceptable"},
-                        {<<"content-type">>, AcceptContentType}
+                        {error, encode_payload},
+                        {payload, Body},
+                        {description, "can't encode payload"},
+                        {exception, {Class,Reason}},
+                        {stacktrace, ST}
                     ]),
+                    E = <<"Can't encode '", AcceptContentType/binary, "' payload">>,
                     handle_internal_error(
-                        Handler, Request, {unsupported_accept, AcceptContentType},
-                        sheep_response:new_406()
-                    );
-                [{AcceptContentTypeChoosen, Fn} | _] ->
-                    try
-                        Headers2 = lists:keystore(
-                            <<"content-type">>, 1, Headers,
-                            {<<"content-type">>, AcceptContentTypeChoosen}
-                        ),
-                        Response#sheep_response{
-                            headers = Headers2,
-                            body = Fn(Body)
-                        }
-                    catch
-                        Class:Reason ->
-                            ST = erlang:get_stacktrace(),
-                            error_logger:info_report([
-                                {error, encode_payload},
-                                {payload, Body},
-                                {description, "can't encode payload"},
-                                {exception, {Class,Reason}},
-                                {stacktrace, ST}
-                            ]),
-                            E = <<"Can't encode '", AcceptContentType/binary, "' payload">>,
-                            handle_internal_error(
-                                Handler, Request, {response_encode_error, Class, Reason, AcceptContentType},
-                                #sheep_response{status_code = 500, body = E}
-                            )
-                    end
+                        Handler, Request, {response_encode_error, Class, Reason, AcceptContentType},
+                        #sheep_response{status_code = 500, body = E}
+                    )
             end
     end.
-
 
 -spec handle(#sheep_request{}, module(), #sheep_options{}, term()) -> #sheep_response{}.
 handle(#sheep_request{method = Method} = Request, HandlerModule, Options, State) ->
@@ -328,13 +326,19 @@ parse_quality(Q) ->
         0
     end.
 
-sort_by_quality(AcceptTypes) ->
-    lists:sort(
-        fun ({_, Opt1P}, {_, Opt2P}) ->
-            Q1 = proplists:get_value(<<"q">>, Opt1P, 1),
-            Q2 = proplists:get_value(<<"q">>, Opt2P, 1),
-            parse_quality(Q1) > parse_quality(Q2)
-        end, maps:to_list(AcceptTypes)).
+sort_by_quality([], error) -> [];
+sort_by_quality(AcceptTypes, DefaultEnc) ->
+    SortedAcceptTypes =
+        lists:sort(
+            fun ({_, Opt1P}, {_, Opt2P}) ->
+                Q1 = proplists:get_value(<<"q">>, Opt1P, 1),
+                Q2 = proplists:get_value(<<"q">>, Opt2P, 1),
+                parse_quality(Q1) > parse_quality(Q2)
+            end, maps:to_list(AcceptTypes)),
+    case SortedAcceptTypes of
+        [] -> [{<<"*/*">>, DefaultEnc}];
+        _ -> SortedAcceptTypes
+    end.
 
 clean_accept_content_type(undefined) -> #{};
 clean_accept_content_type(BinAccept) when is_binary(BinAccept) ->
