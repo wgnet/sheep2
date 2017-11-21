@@ -7,7 +7,7 @@ ct:
 tests: ct
 
 console:
-	erl -pa _build/default/lib/*/ebin
+	rebar3 shell
 
 d:
 	rebar3 dialyzer

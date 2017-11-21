@@ -215,7 +215,7 @@ invalid_headers_test(_Config) ->
     {415, _, <<"Not supported 'content-type'">>} = query(get, "/simple", [], JData),
     {415, _, <<"Not supported 'content-type'">>} =
         query(get, "/simple", [{<<"content-type">>, <<"text/html">>}], JData),
-    {406, _, <<"Not acceptable">>} =
+    {200, _, _} = %% skipping "accept" header is possible
         query(get, "/simple", [{<<"content-type">>, <<"application/x-msgpack">>}], MData),
     {406, _, <<"Not acceptable">>} =
         query(get, "/simple", [

@@ -10,6 +10,6 @@
         msgpack
     ]},
     {env, [
-        {log_query, true}
+        {log_callback, undefined}
     ]}
 ]}.

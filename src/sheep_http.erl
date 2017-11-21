@@ -60,14 +60,15 @@ upgrade(CowRequest, Env, Handler, HandlerOpts) ->
             Class:Reason ->
                 {#sheep_options{}, handle_exception(Handler, Request, Class, Reason)}
         end,
+    Response2 = encode_payload(Handler, Request, Response, Options),
     #sheep_response{
         status_code = ResponseCode,
         headers = ResponseHeaders,
         body = ResponseBody
-    } = encode_payload(Handler, Request, Response, Options),
+    } = Response2,
+    log_query(CowRequest, Request, Response2),
 
     {ok, CowResponse} = cowboy_req:reply(ResponseCode, ResponseHeaders, ResponseBody, CowRequest5),
-    log_query(CowResponse, ResponseCode),
     {ok, CowResponse, Env}.
 
 
@@ -133,7 +134,11 @@ encode_payload(_Handler, _Request, #sheep_response{status_code = 204} = Response
 encode_payload(_Handler, _Request, #sheep_response{body = undefined} = Response, _Options) ->
     Response#sheep_response{body = <<>>};
 encode_payload(Handler, Request, #sheep_response{body = Body, headers = Headers} = Response, Options) ->
-    AcceptContentType = get_header(<<"accept">>, Request),
+    AcceptContentType =
+        case get_header(<<"accept">>, Request) of
+            undefined -> get_header(<<"content-type">>, Request);
+            A -> A
+        end,
     CleanAcceptContentType = clean_accept_content_type(AcceptContentType),
     CleanAcceptContentTypeKeys = maps:keys(CleanAcceptContentType),
     EncodeSpec = encode_spec(Options),
@@ -384,23 +389,9 @@ to_binary(V) when is_list(V) -> list_to_binary(V);
 to_binary(V) when is_binary(V) -> V.
 
 
--spec log_query(cowboy_req:req(), http_code()) -> ok.
-log_query(Req, StatusCode) ->
-    case application:get_env(sheep2, log_query) of
-        {ok, true} -> do_log_query(Req, StatusCode);
-        _ -> ignore
+-spec log_query(cowboy_req:req(), #sheep_request{}, #sheep_response{}) -> ok.
+log_query(CowRequest, Request, Response) ->
+    case application:get_env(sheep2, log_callback) of
+        {ok, Fun} when is_function(Fun) -> Fun({CowRequest, Request, Response});
+        undefined -> ok
     end.
-
-do_log_query(Req, StatusCode) ->
-    {{RAddr, _RPort}, _} = cowboy_req:peer(Req),
-    RemoteAddr = inet:ntoa(RAddr),
-    {Host, _} = cowboy_req:header(<<"host">>, Req, <<"-">>),
-    {Method, _} = cowboy_req:method(Req),
-    {Path, _} = cowboy_req:path(Req),
-    {UserAgent, _} = cowboy_req:header(<<"user-agent">>, Req, <<"-">>),
-    error_logger:info_msg("[sheep2] ~s ~s - \"~s ~s\" ~w ~s",
-        [
-            RemoteAddr, Host,
-            Method, Path,
-            StatusCode, UserAgent
-        ]).
