@@ -393,5 +393,6 @@ to_binary(V) when is_binary(V) -> V.
 log_query(CowRequest, Request, Response) ->
     case application:get_env(sheep2, log_callback) of
         {ok, Fun} when is_function(Fun) -> Fun({CowRequest, Request, Response});
+        {ok, undefined} -> ok;
         undefined -> ok
     end.
