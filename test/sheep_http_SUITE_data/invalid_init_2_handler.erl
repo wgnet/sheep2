@@ -1,13 +1,13 @@
 -module(invalid_init_2_handler).
 -behaviour(sheep_http).
 
--export([init/3, sheep_init/2, exception_handler/3]).
+-export([init/2, sheep_init/2, exception_handler/3]).
 
 -include("sheep.hrl").
 
--spec init(atom(), cowboy_req:req(), term()) -> tuple().
-init(_Transport, Req, _Opts) ->
-    {upgrade, protocol, sheep_http, Req, []}.
+-spec init(cowboy_req:req(), term()) -> tuple().
+init(Req, Opts) ->
+    {sheep_http, Req, Opts}.
 
 
 -spec sheep_init(#sheep_request{}, term()) -> {#sheep_options{}, term()}.

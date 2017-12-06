@@ -18,12 +18,12 @@ run() ->
         ]}
     ]),
 
-    {ok, _} = cowboy:start_http(?MODULE, 10, [{port, 0}],
-        [
-            {env, [{dispatch, Routing}]},
-            {max_keepalive, 50},
-            {timeout, 500}
-        ]),
+    {ok, _} = cowboy:start_clear(?MODULE, [{port, 0}],
+        #{
+            env => #{dispatch => Routing},
+            max_keepalive => 50,
+            timeout => 500
+        }),
 
     H = [
         {<<"content-type">>, <<"application/json">>}
@@ -43,11 +43,11 @@ query(Method, Path, Headers, Data) ->
 
 -spec log({cowboy_req:req(), #sheep_request{}, #sheep_response{}}) -> ok.
 log({Req, Request, Response}) ->
-    {{RAddr, _RPort}, _} = cowboy_req:peer(Req),
+    {RAddr, _RPort} = cowboy_req:peer(Req),
     RemoteAddr = inet:ntoa(RAddr),
-    {Host, _} = cowboy_req:header(<<"host">>, Req, <<"-">>),
-    {Method, _} = cowboy_req:method(Req),
-    {Path, _} = cowboy_req:path(Req),
+    Host = cowboy_req:header(<<"host">>, Req, <<"-">>),
+    Method = cowboy_req:method(Req),
+    Path = cowboy_req:path(Req),
 
     io:format("Log:~n"),
     io:format(" Cowboy req: ~s ~s - \"~s ~s\"~n", [RemoteAddr, Host, Method, Path]),

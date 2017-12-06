@@ -55,12 +55,12 @@ init_per_suite(Config) ->
         ]}
     ]),
 
-    {ok, _} = cowboy:start_http(sheep_test_server, 100, [{port, 0}],
-        [
-            {env, [{dispatch, Routing}]},
-            {max_keepalive, 50},
-            {timeout, 500}
-        ]),
+    {ok, _} = cowboy:start_clear(sheep_test_server, [{port, 0}],
+        #{
+            env => #{dispatch => Routing},
+            max_keepalive => 50,
+            timeout => 500
+        }),
     Config.
 
 

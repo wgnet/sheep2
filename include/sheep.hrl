@@ -2,20 +2,20 @@
 
 -record(sheep_request, {
     method:: binary(),
-    headers = [] :: list(),
-    query = #{} :: map(),
-    bindings = #{} :: map(),
-    body = <<>> :: map() | [map()] | binary()
+    headers = #{} :: maps:map(),
+    query = #{} :: maps:map(),
+    bindings = #{} :: maps:map(),
+    body = <<>> :: maps:map() | [maps:map()] | binary()
 }).
 
 -record(sheep_response, {
     status_code = 500 :: http_code(),
-    headers = [] :: list(),
-    body = <<>> :: map() | [map()] | binary() | undefined
+    headers = #{} :: maps:map(),
+    body = <<>> :: maps:map() | [maps:map()] | binary() | undefined
 }).
 
 -record(sheep_options, {
-    encode_spec :: undefined | map(),
-    decode_spec :: undefined | map(),
-    method_spec :: undefined | map()
+    encode_spec :: undefined | maps:map(),
+    decode_spec :: undefined | maps:map(),
+    method_spec :: undefined | maps:map()
 }).

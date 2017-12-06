@@ -1,13 +1,13 @@
 -module(simple_handler).
 -behaviour(sheep_http).
 
--export([init/3, read/2, create/2, update/2, delete/2]).
+-export([init/2, read/2, create/2, update/2, delete/2]).
 
 -include("sheep.hrl").
 
--spec init(atom(), cowboy_req:req(), term()) -> tuple().
-init(_Transport, Req, _Opts) ->
-    {upgrade, protocol, sheep_http, Req, []}.
+-spec init(cowboy_req:req(), term()) -> tuple().
+init(Req, Opts) ->
+    {sheep_http, Req, Opts}.
 
 
 -spec read(#sheep_request{}, term()) -> #sheep_response{}.
