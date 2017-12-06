@@ -23,18 +23,18 @@
 
 -spec upgrade(cowboy_req:req(), cowboy_middleware:env(), module(), term()) ->
                      {ok, cowboy_req:req(), cowboy_middleware:env()}.
-upgrade(CowRequest, Env, Handler, HandlerOpts) ->
-    {Method, CowRequest1} = cowboy_req:method(CowRequest),
-    {Headers, CowRequest2} = cowboy_req:headers(CowRequest1),
-    {Bindings, CowRequest3} = cowboy_req:bindings(CowRequest2),
-    {Query, CowRequest4} = cowboy_req:qs_vals(CowRequest3),
-    {Body, CowRequest5} = case cowboy_req:has_body(CowRequest4) of
-                              true ->
-                                  {ok, Body0, CowReq5} = cowboy_req:body(CowRequest4),
-                                  {Body0, CowReq5};
-                              false ->
-                                  {<<>>, CowRequest4}
-                          end,
+upgrade(CowRequest0, Env, Handler, HandlerOpts) ->
+    Method = cowboy_req:method(CowRequest0),
+    Headers = cowboy_req:headers(CowRequest0),
+    Bindings = cowboy_req:bindings(CowRequest0),
+    Query = cowboy_req:qs_vals(CowRequest0),
+    Body = case cowboy_req:has_body(CowRequest0) of
+               true ->
+                   {ok, Body0, CowRequest1} = cowboy_req:read_body(CowRequest0),
+                   {Body0, CowRequest1};
+               false ->
+                   {<<>>, CowRequest0}
+           end,
     Request = #sheep_request{
         method = Method,
         headers = Headers,
