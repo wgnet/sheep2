@@ -27,7 +27,7 @@ upgrade(CowRequest0, Env, Handler, HandlerOpts) ->
     Method = cowboy_req:method(CowRequest0),
     Headers = cowboy_req:headers(CowRequest0),
     Bindings = cowboy_req:bindings(CowRequest0),
-    Query = cowboy_req:qs_vals(CowRequest0),
+    Query = cowboy_req:qs(CowRequest0),
     {Body, CowRequest} = case cowboy_req:has_body(CowRequest0) of
                true ->
                    {ok, Body0, CowRequest1} = cowboy_req:read_body(CowRequest0),
@@ -68,8 +68,8 @@ upgrade(CowRequest0, Env, Handler, HandlerOpts) ->
     } = Response2,
     log_query(CowRequest, Request, Response2),
 
-    {ok, CowResponse} = cowboy_req:reply(ResponseCode, ResponseHeaders, ResponseBody, CowRequest),
-    {ok, CowResponse, Env}.
+    CowReply = cowboy_req:reply(ResponseCode, ResponseHeaders, ResponseBody, CowRequest),
+    {ok, CowReply, Env}.
 
 
 -spec get_header(binary(), #sheep_request{}) -> binary() | undefined.
