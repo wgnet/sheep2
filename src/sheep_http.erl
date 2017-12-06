@@ -28,7 +28,7 @@ upgrade(CowRequest0, Env, Handler, HandlerOpts) ->
     Headers = cowboy_req:headers(CowRequest0),
     Bindings = cowboy_req:bindings(CowRequest0),
     Query = cowboy_req:qs_vals(CowRequest0),
-    Body = case cowboy_req:has_body(CowRequest0) of
+    {Body, CowRequest} = case cowboy_req:has_body(CowRequest0) of
                true ->
                    {ok, Body0, CowRequest1} = cowboy_req:read_body(CowRequest0),
                    {Body0, CowRequest1};
@@ -68,7 +68,7 @@ upgrade(CowRequest0, Env, Handler, HandlerOpts) ->
     } = Response2,
     log_query(CowRequest, Request, Response2),
 
-    {ok, CowResponse} = cowboy_req:reply(ResponseCode, ResponseHeaders, ResponseBody, CowRequest5),
+    {ok, CowResponse} = cowboy_req:reply(ResponseCode, ResponseHeaders, ResponseBody, CowRequest),
     {ok, CowResponse, Env}.
 
 
