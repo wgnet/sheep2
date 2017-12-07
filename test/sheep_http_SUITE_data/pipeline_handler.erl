@@ -1,16 +1,16 @@
 -module(pipeline_handler).
 -behaviour(sheep_http).
 
--export([init/3, sheep_init/2, authorization/2, paging/2, validation/2, stage4/2, read/2, create/2]).
+-export([init/2, sheep_init/2, authorization/2, paging/2, validation/2, stage4/2, read/2, create/2]).
 
 -include("sheep.hrl").
 
 -record(state, {steps = [], user_id}).
 
 
--spec init(atom(), cowboy_req:req(), term()) -> tuple().
-init(_Transport, Req, _Opts) ->
-    {upgrade, protocol, sheep_http, Req, []}.
+-spec init(cowboy_req:req(), term()) -> tuple().
+init(Req, Opts) ->
+    {sheep_http, Req, Opts}.
 
 
 -spec sheep_init(#sheep_request{}, term()) -> {#sheep_options{}, term()}.

@@ -1,7 +1,7 @@
 -module(sheep_http).
 -behaviour(cowboy_sub_protocol).
 
--export([upgrade/4, get_header/2, get_header/3]).
+-export([upgrade/4, upgrade/5, get_header/2, get_header/3]).
 
 -include("sheep.hrl").
 
@@ -21,24 +21,30 @@
 
 %%% Module API
 
+-spec upgrade(cowboy_req:req(), cowboy_middleware:env(), module(), any(), any())
+	-> {ok, Req, Env} when Req::cowboy_req:req(), Env::cowboy_middleware:env().
+%% cowboy_rest takes no options.
+upgrade(Req, Env, Handler, _HandlerState, Opts) ->
+	upgrade(Req, Env, Handler, Opts).
+
 -spec upgrade(cowboy_req:req(), cowboy_middleware:env(), module(), term()) ->
                      {ok, cowboy_req:req(), cowboy_middleware:env()}.
-upgrade(CowRequest, Env, Handler, HandlerOpts) ->
-    {Method, CowRequest1} = cowboy_req:method(CowRequest),
-    {Headers, CowRequest2} = cowboy_req:headers(CowRequest1),
-    {Bindings, CowRequest3} = cowboy_req:bindings(CowRequest2),
-    {Query, CowRequest4} = cowboy_req:qs_vals(CowRequest3),
-    {Body, CowRequest5} = case cowboy_req:has_body(CowRequest4) of
-                              true ->
-                                  {ok, Body0, CowReq5} = cowboy_req:body(CowRequest4),
-                                  {Body0, CowReq5};
-                              false ->
-                                  {<<>>, CowRequest4}
-                          end,
+upgrade(CowRequest0, Env, Handler, HandlerOpts) ->
+    Method = cowboy_req:method(CowRequest0),
+    Headers = cowboy_req:headers(CowRequest0),
+    Bindings = cowboy_req:bindings(CowRequest0),
+    Query = cowboy_req:parse_qs(CowRequest0),
+    {Body, CowRequest} = case cowboy_req:has_body(CowRequest0) of
+               true ->
+                   {ok, Body0, CowRequest1} = cowboy_req:read_body(CowRequest0),
+                   {Body0, CowRequest1};
+               false ->
+                   {<<>>, CowRequest0}
+           end,
     Request = #sheep_request{
         method = Method,
         headers = Headers,
-        bindings = to_map(Bindings),
+        bindings = Bindings,
         query = to_map(Query),
         body = Body
     },
@@ -68,8 +74,8 @@ upgrade(CowRequest, Env, Handler, HandlerOpts) ->
     } = Response2,
     log_query(CowRequest, Request, Response2),
 
-    {ok, CowResponse} = cowboy_req:reply(ResponseCode, ResponseHeaders, ResponseBody, CowRequest5),
-    {ok, CowResponse, Env}.
+    CowReply = cowboy_req:reply(ResponseCode, ResponseHeaders, ResponseBody, CowRequest),
+    {ok, CowReply, Env}.
 
 
 -spec get_header(binary(), #sheep_request{}) -> binary() | undefined.
@@ -78,10 +84,7 @@ get_header(Name, Request) ->
 
 -spec get_header(binary(), #sheep_request{}, binary() | undefined) -> binary() | undefined.
 get_header(Name, #sheep_request{headers = Headers}, Default) ->
-    case lists:keyfind(Name, 1, Headers) of
-        {_, Value} -> Value;
-        false -> Default
-    end.
+    maps:get(Name, Headers, Default).
 
 
 %%% Inner functions
@@ -157,10 +160,7 @@ encode_payload(Handler, Request, #sheep_response{body = Body, headers = Headers}
             );
         [{AcceptContentTypeChoosen, Fn} | _] ->
             try
-                Headers2 = lists:keystore(
-                    <<"content-type">>, 1, Headers,
-                    {<<"content-type">>, AcceptContentTypeChoosen}
-                ),
+                Headers2 = maps:put(<<"content-type">>, AcceptContentTypeChoosen, Headers),
                 Response#sheep_response{
                     headers = Headers2,
                     body = Fn(Body)

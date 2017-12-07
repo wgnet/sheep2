@@ -1,16 +1,16 @@
 -module(internal_error_handler).
 -behaviour(sheep_http).
 
--export([init/3, create/2, exception_handler/3]).
+-export([init/2, create/2, exception_handler/3]).
 
 -include("sheep.hrl").
 
--spec init(atom(), cowboy_req:req(), term()) -> tuple().
-init(_Transport, Req, _Opts) ->
-    {upgrade, protocol, sheep_http, Req, []}.
+-spec init(cowboy_req:req(), term()) -> tuple().
+init(Req, Opts) ->
+    {sheep_http, Req, Opts}.
 
 
-create(#sheep_request{bindings = #{<<"type">> := <<"response_encode_error">>}}, _State)->
+create(#sheep_request{bindings = #{type := <<"response_encode_error">>}}, _State)->
     Body = #{<<"error">> => self()},
     #sheep_response{status_code = 200, body = Body};
 create(_, _) ->
