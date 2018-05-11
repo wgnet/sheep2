@@ -6,7 +6,7 @@
     query = #{} :: map(),
     bindings = #{} :: map(),
     body = <<>> :: map() | [map()] | binary(),
-    peer = {inet:ip_address(), inet:port_number()}
+    peer :: {inet:ip_address(), inet:port_number()}
 }).
 
 -record(sheep_response, {
