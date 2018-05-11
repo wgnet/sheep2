@@ -1,7 +1,7 @@
 -module(sheep_try).
 
 -export([run/0, query/4, log/1]).
--export([init/3, read/2]).
+-export([init/2, read/2]).
 
 -include("sheep.hrl").
 
@@ -58,9 +58,9 @@ log({Req, Request, Response}) ->
 
 %% Sheep handler
 
--spec init(atom(), cowboy_req:req(), term()) -> tuple().
-init(_Transport, Req, _Opts) ->
-    {upgrade, protocol, sheep_http, Req, []}.
+-spec init(cowboy_req:req(), term()) -> tuple().
+init(Req, Opts) ->
+    {sheep_http, Req, Opts}.
 
 
 -spec read(#sheep_request{}, term()) -> #sheep_response{}.

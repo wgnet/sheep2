@@ -34,6 +34,7 @@ upgrade(CowRequest0, Env, Handler, HandlerOpts) ->
     Headers = cowboy_req:headers(CowRequest0),
     Bindings = cowboy_req:bindings(CowRequest0),
     Query = cowboy_req:parse_qs(CowRequest0),
+    Peer = cowboy_req:peer(CowRequest0),
     {Body, CowRequest} = case cowboy_req:has_body(CowRequest0) of
                true ->
                    {ok, Body0, CowRequest1} = cowboy_req:read_body(CowRequest0),
@@ -46,7 +47,8 @@ upgrade(CowRequest0, Env, Handler, HandlerOpts) ->
         headers = Headers,
         bindings = Bindings,
         query = to_map(Query),
-        body = Body
+        body = Body,
+        peer = Peer
     },
 
     {Options, Response} =

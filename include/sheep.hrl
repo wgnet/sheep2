@@ -5,7 +5,8 @@
     headers = #{} :: maps:map(),
     query = #{} :: maps:map(),
     bindings = #{} :: maps:map(),
-    body = <<>> :: maps:map() | [maps:map()] | binary()
+    body = <<>> :: maps:map() | [maps:map()] | binary(),
+    peer :: {inet:ip_address(), inet:port_number()}
 }).
 
 -record(sheep_response, {
