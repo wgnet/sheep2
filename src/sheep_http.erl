@@ -35,12 +35,15 @@ upgrade(CowRequest, Env, Handler, HandlerOpts) ->
                               false ->
                                   {<<>>, CowRequest4}
                           end,
+    {Peer, CowRequest6} = cowboy_req:peer(CowRequest5),
+
     Request = #sheep_request{
         method = Method,
         headers = Headers,
         bindings = to_map(Bindings),
         query = to_map(Query),
-        body = Body
+        body = Body,
+        peer = Peer
     },
 
     {Options, Response} =
@@ -68,7 +71,7 @@ upgrade(CowRequest, Env, Handler, HandlerOpts) ->
     } = Response2,
     log_query(CowRequest, Request, Response2),
 
-    {ok, CowResponse} = cowboy_req:reply(ResponseCode, ResponseHeaders, ResponseBody, CowRequest5),
+    {ok, CowResponse} = cowboy_req:reply(ResponseCode, ResponseHeaders, ResponseBody, CowRequest6),
     {ok, CowResponse, Env}.
 
 
