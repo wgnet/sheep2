@@ -285,7 +285,7 @@ decode_spec(#sheep_options{decode_spec = undefined}) ->
         end,
         ?MIME_MSGPACK =>
         fun(Payload) ->
-            {ok, Data} = msgpack:unpack(Payload, [{map_format, map}]),
+            {ok, Data} = msgpack:unpack(Payload, [{map_format, map}, {unpack_str, as_binary}]),
             Data
         end
     }.
@@ -301,7 +301,7 @@ encode_spec(#sheep_options{encode_spec = undefined}) ->
         end,
         ?MIME_MSGPACK =>
         fun(Payload) ->
-            msgpack:pack(Payload, [{map_format, map}])
+            msgpack:pack(Payload, [{map_format, map}, {pack_str, from_binary}])
         end
     }.
 
