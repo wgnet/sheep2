@@ -154,7 +154,7 @@ error_status_test(_Config) ->
 
     {500, _, Body4} = query("/e/status/users/4"),
     #{<<"error">> := <<"custom_error">>} = jiffy:decode(Body4, [return_maps]),
-    
+
     {400, _, Body5} = query("/e/status/users/5"),
     #{<<"error">> := <<"Test exception">>} = jiffy:decode(Body5, [return_maps]),
 
