@@ -135,10 +135,10 @@ status_test(_Config) ->
         = jiffy:decode(Body1, [return_maps]),
 
     {204, Headers2, <<>>} = query("/status/users/2"),
-    <<"0">> = proplists:get_value(<<"content-length">>, Headers2),
+    undefined = proplists:get_value(<<"content-length">>, Headers2),
 
     {204, Headers3, <<>>} = query("/status/users/3"),
-    <<"0">> = proplists:get_value(<<"content-length">>, Headers3),
+    undefined = proplists:get_value(<<"content-length">>, Headers3),
 
     {404, _, <<"Not found">>} = query("/status/users/4"),
     ok.
