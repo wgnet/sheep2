@@ -39,9 +39,9 @@ upgrade(CowRequest0, Env, Handler, HandlerOpts) ->
 
     Request = #sheep_request{
         method = Method,
-        headers = Headers,
-        bindings = Bindings,
-        query = to_map(Query),
+        headers = Headers,                               %{binary() => binary()}
+        bindings = plist_to_map(maps:to_list(Bindings)), %{binary() => binary()}
+        query = plist_to_map(Query),                     %{binary() => binary()}
         body = Body,
         peer = Peer
     },
@@ -372,12 +372,9 @@ clean_content_type(RawContentType) ->
         [ContentType] -> ContentType
     end.
 
-
--spec to_map([proplists:property()]) -> map().
-to_map(List) ->
-    maps:from_list(
-      lists:map(fun({K, V}) -> {to_binary(K), V} end, List)
-    ).
+-spec plist_to_map([proplists:property()]) -> #{binary() => term()}.
+plist_to_map(Plist) ->
+    maps:from_list([{to_binary(K), V} || {K, V} <- Plist]).
 
 -spec read_body(cowboy_req:req()) -> {binary(), cowboy_req:req()}.
 read_body(Req0) ->

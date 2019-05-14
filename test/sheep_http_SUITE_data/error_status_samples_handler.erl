@@ -18,18 +18,18 @@ exception_handler(_Request, throw, test_exception) ->
 
 
 -spec read(#sheep_request{}, term()) -> #sheep_response{}.
-read(#sheep_request{bindings = #{user_id := <<"3">>}}, _State)->
+read(#sheep_request{bindings = #{<<"user_id">> := <<"3">>}}, _State)->
     Body = #{<<"error">> => <<"simple_error">>},
     #sheep_response{status_code = 400, body = Body};
 
-read(#sheep_request{bindings = #{user_id := <<"4">>}}, _State)->
+read(#sheep_request{bindings = #{<<"user_id">> := <<"4">>}}, _State)->
     Body = #{<<"error">> => <<"custom_error">>},
     #sheep_response{body = Body};
 
-read(#sheep_request{bindings = #{user_id := <<"5">>}}, _State)->
+read(#sheep_request{bindings = #{<<"user_id">> := <<"5">>}}, _State)->
     throw(test_exception);
 
-read(#sheep_request{bindings = #{user_id := _UserID}}, _State)->
+read(#sheep_request{bindings = #{<<"user_id">> := _UserID}}, _State)->
     #sheep_response{status_code = 404, body = <<"Not found">>};
 
 read(_Request, _State)->

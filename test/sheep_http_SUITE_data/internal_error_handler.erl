@@ -11,7 +11,7 @@ init(Req, Opts) ->
 
 
 -spec create(#sheep_request{}, term()) -> #sheep_response{}.
-create(#sheep_request{bindings = #{type := <<"response_encode_error">>}}, _State)->
+create(#sheep_request{bindings = #{<<"type">> := <<"response_encode_error">>}}, _State)->
     Body = #{<<"error">> => self()},
     #sheep_response{status_code = 200, body = Body};
 create(_, _) ->
