@@ -36,12 +36,12 @@ upgrade(CowRequest0, Env, Handler, HandlerOpts) ->
     Query = cowboy_req:parse_qs(CowRequest0),
     Peer = cowboy_req:peer(CowRequest0),
     {Body, CowRequest} = case cowboy_req:has_body(CowRequest0) of
-               true ->
-                   {ok, Body0, CowRequest1} = cowboy_req:read_body(CowRequest0),
-                   {Body0, CowRequest1};
-               false ->
-                   {<<>>, CowRequest0}
-           end,
+        true ->
+            {ok, Body0, CowRequest1} = read_body(CowRequest0),
+            {Body0, CowRequest1};
+        false ->
+            {<<>>, CowRequest0}
+    end,
     Request = #sheep_request{
         method = Method,
         headers = Headers,
@@ -384,6 +384,22 @@ to_map(List) ->
       lists:map(fun({K, V}) -> {to_binary(K), V} end, List)
     ).
 
+-spec read_body(cowboy_req:req()) -> {binary(), cowboy_req:req()}.
+read_body(Req0) ->
+    case cowboy_req:has_body(Req0) of
+        true ->
+            read_body(Req0, <<>>);
+        false ->
+            {<<>>, Req0}
+    end.
+
+read_body(Req0, Acc) ->
+    case cowboy_req:read_body(Req0) of
+        {ok, Data, Req} ->
+            {<<Acc/binary, Data/binary>>, Req};
+        {more, Data, Req} ->
+            read_body(Req, <<Acc/binary, Data/binary>>)
+    end.
 
 -spec to_binary(atom() | list() | binary()) -> binary().
 to_binary(V) when is_atom(V) -> to_binary(atom_to_list(V));
