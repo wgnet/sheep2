@@ -38,7 +38,7 @@ all() ->
 -spec init_per_suite(list()) -> list().
 init_per_suite(Config) ->
     application:ensure_all_started(cowboy),
-    hackney:start(),
+    application:ensure_all_started(hackney),
 
     Routing = cowboy_router:compile([
         {"localhost", [

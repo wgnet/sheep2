@@ -10,7 +10,7 @@
 run() ->
     application:set_env(sheep2, log_callback, fun ?MODULE:log/1),
     application:ensure_all_started(cowboy),
-    hackney:start(),
+    application:ensure_all_started(hackney),
 
     Routing = cowboy_router:compile([
         {"localhost", [
