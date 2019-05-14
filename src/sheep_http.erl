@@ -35,13 +35,8 @@ upgrade(CowRequest0, Env, Handler, HandlerOpts) ->
     Bindings = cowboy_req:bindings(CowRequest0),
     Query = cowboy_req:parse_qs(CowRequest0),
     Peer = cowboy_req:peer(CowRequest0),
-    {Body, CowRequest} = case cowboy_req:has_body(CowRequest0) of
-        true ->
-            {ok, Body0, CowRequest1} = read_body(CowRequest0),
-            {Body0, CowRequest1};
-        false ->
-            {<<>>, CowRequest0}
-    end,
+    {Body, CowRequest} = read_body(CowRequest0),
+
     Request = #sheep_request{
         method = Method,
         headers = Headers,
