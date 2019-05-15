@@ -38,7 +38,7 @@ all() ->
 -spec init_per_suite(list()) -> list().
 init_per_suite(Config) ->
     application:ensure_all_started(cowboy),
-    hackney:start(),
+    application:ensure_all_started(hackney),
 
     Routing = cowboy_router:compile([
         {"localhost", [
@@ -135,10 +135,10 @@ status_test(_Config) ->
         = jiffy:decode(Body1, [return_maps]),
 
     {204, Headers2, <<>>} = query("/status/users/2"),
-    <<"0">> = proplists:get_value(<<"content-length">>, Headers2),
+    undefined = proplists:get_value(<<"content-length">>, Headers2),
 
     {204, Headers3, <<>>} = query("/status/users/3"),
-    <<"0">> = proplists:get_value(<<"content-length">>, Headers3),
+    undefined = proplists:get_value(<<"content-length">>, Headers3),
 
     {404, _, <<"Not found">>} = query("/status/users/4"),
     ok.
@@ -154,7 +154,7 @@ error_status_test(_Config) ->
 
     {500, _, Body4} = query("/e/status/users/4"),
     #{<<"error">> := <<"custom_error">>} = jiffy:decode(Body4, [return_maps]),
-    
+
     {400, _, Body5} = query("/e/status/users/5"),
     #{<<"error">> := <<"Test exception">>} = jiffy:decode(Body5, [return_maps]),
 

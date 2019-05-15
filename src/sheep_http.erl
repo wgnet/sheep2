@@ -35,18 +35,13 @@ upgrade(CowRequest0, Env, Handler, HandlerOpts) ->
     Bindings = cowboy_req:bindings(CowRequest0),
     Query = cowboy_req:parse_qs(CowRequest0),
     Peer = cowboy_req:peer(CowRequest0),
-    {Body, CowRequest} = case cowboy_req:has_body(CowRequest0) of
-               true ->
-                   {ok, Body0, CowRequest1} = cowboy_req:read_body(CowRequest0),
-                   {Body0, CowRequest1};
-               false ->
-                   {<<>>, CowRequest0}
-           end,
+    {Body, CowRequest} = read_body(CowRequest0),
+
     Request = #sheep_request{
         method = Method,
-        headers = Headers,
-        bindings = Bindings,
-        query = to_map(Query),
+        headers = Headers,                               %{binary() => binary()}
+        bindings = plist_to_map(maps:to_list(Bindings)), %{binary() => binary()}
+        query = plist_to_map(Query),                     %{binary() => binary()}
         body = Body,
         peer = Peer
     },
@@ -284,7 +279,7 @@ decode_spec(#sheep_options{decode_spec = undefined}) ->
         end,
         ?MIME_MSGPACK =>
         fun(Payload) ->
-            {ok, Data} = msgpack:unpack(Payload, [{map_format, map}]),
+            {ok, Data} = msgpack:unpack(Payload, [{map_format, map}, {unpack_str, as_binary}]),
             Data
         end
     }.
@@ -300,7 +295,7 @@ encode_spec(#sheep_options{encode_spec = undefined}) ->
         end,
         ?MIME_MSGPACK =>
         fun(Payload) ->
-            msgpack:pack(Payload, [{map_format, map}])
+            msgpack:pack(Payload, [{map_format, map}, {pack_str, from_binary}])
         end
     }.
 
@@ -377,13 +372,26 @@ clean_content_type(RawContentType) ->
         [ContentType] -> ContentType
     end.
 
+-spec plist_to_map([proplists:property()]) -> #{binary() => term()}.
+plist_to_map(Plist) ->
+    maps:from_list([{to_binary(K), V} || {K, V} <- Plist]).
 
--spec to_map([proplists:property()]) -> map().
-to_map(List) ->
-    maps:from_list(
-      lists:map(fun({K, V}) -> {to_binary(K), V} end, List)
-    ).
+-spec read_body(cowboy_req:req()) -> {binary(), cowboy_req:req()}.
+read_body(Req0) ->
+    case cowboy_req:has_body(Req0) of
+        true ->
+            read_body(Req0, <<>>);
+        false ->
+            {<<>>, Req0}
+    end.
 
+read_body(Req0, Acc) ->
+    case cowboy_req:read_body(Req0) of
+        {ok, Data, Req} ->
+            {<<Acc/binary, Data/binary>>, Req};
+        {more, Data, Req} ->
+            read_body(Req, <<Acc/binary, Data/binary>>)
+    end.
 
 -spec to_binary(atom() | list() | binary()) -> binary().
 to_binary(V) when is_atom(V) -> to_binary(atom_to_list(V));

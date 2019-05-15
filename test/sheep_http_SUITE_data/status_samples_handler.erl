@@ -11,20 +11,20 @@ init(Req, Opts) ->
 
 
 -spec read(#sheep_request{}, term()) -> #sheep_response{}.
-read(#sheep_request{bindings = #{user_id := <<"1">>}}, _State) ->
+read(#sheep_request{bindings = #{<<"user_id">> := <<"1">>}}, _State) ->
     Body = #{<<"id">> => <<"1">>, <<"name">> => <<"Username 1">>},
     #sheep_response{status_code = 200, body = Body};
 
-read(#sheep_request{bindings = #{user_id := <<"2">>}}, _State) ->
+read(#sheep_request{bindings = #{<<"user_id">> := <<"2">>}}, _State) ->
     #sheep_response{status_code = 204, body = <<>>};
 
-read(#sheep_request{bindings = #{user_id := <<"3">>}}, _State) ->
+read(#sheep_request{bindings = #{<<"user_id">> := <<"3">>}}, _State) ->
     #sheep_response{status_code = 204, body = #{}};
 
-read(#sheep_request{bindings = #{user_id := <<"5">>}}, _State)->
+read(#sheep_request{bindings = #{<<"user_id">> := <<"5">>}}, _State)->
     throw(test_exception);
 
-read(#sheep_request{bindings = #{user_id := _}}, _State)->
+read(#sheep_request{bindings = #{<<"user_id">> := _}}, _State)->
     sheep_response:new_404();
 
 read(_Request, _State)->

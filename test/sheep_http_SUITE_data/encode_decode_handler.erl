@@ -35,16 +35,16 @@ sheep_init(_Request, _Opts) ->
 
 
 -spec read(#sheep_request{}, term()) -> #sheep_response{}.
-read(#sheep_request{bindings = #{kind := <<"empty">>}} = _Request, _State) ->
+read(#sheep_request{bindings = #{<<"kind">> := <<"empty">>}} = _Request, _State) ->
     #sheep_response{status_code = 204};
 
-read(#sheep_request{bindings = #{kind := <<"empty_404">>}} = _Request, _State) ->
+read(#sheep_request{bindings = #{<<"kind">> := <<"empty_404">>}} = _Request, _State) ->
     #sheep_response{status_code = 404};
 
-read(#sheep_request{bindings = #{kind := <<"undefined">>}} = _Request, _State) ->
+read(#sheep_request{bindings = #{<<"kind">> := <<"undefined">>}} = _Request, _State) ->
     #sheep_response{status_code = 204};
 
-read(#sheep_request{bindings = #{kind := <<"invalid_payload">>}} = _Request, _State) ->
+read(#sheep_request{bindings = #{<<"kind">> := <<"invalid_payload">>}} = _Request, _State) ->
     Body = [answer, 42],
     #sheep_response{status_code = 200, body = Body};
 
