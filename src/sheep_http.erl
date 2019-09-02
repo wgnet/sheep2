@@ -18,6 +18,16 @@
 -define(MIME_JSON, <<"application/json">>).
 -define(MIME_MSGPACK, <<"application/x-msgpack">>).
 
+%% compatibility
+-ifdef(OTP_RELEASE). %% this implies 21 or higher
+    -define(EXCEPTION(Class, Reason, Stacktrace), Class:Reason:Stacktrace).
+    -define(GET_STACK(Stacktrace), Stacktrace).
+-else.
+    -define(EXCEPTION(Class, Reason, _), Class:Reason).
+    -define(GET_STACK(_), erlang:get_stacktrace()).
+-endif.
+
+
 
 %%% Module API
 
@@ -115,14 +125,13 @@ decode_payload(Handler, #sheep_request{body = Body} = Request, Options) ->
             try
                 {ok, Request#sheep_request{body = Fn(Body)}}
             catch
-                Class:Reason ->
-                    ST = erlang:get_stacktrace(),
+                ?EXCEPTION(Class, Reason, Stacktrace)->
                     error_logger:info_report([
                         {error, decode_payload},
                         {payload, Body},
                         {description, "can't decode payload"},
                         {exception, {Class,Reason}},
-                        {stacktrace, ST}
+                        {stacktrace, ?GET_STACK(Stacktrace)}
                     ]),
                     E = <<"Can't decode '", RawContentType/binary, "' payload">>,
                     {error, handle_internal_error(
@@ -168,14 +177,13 @@ encode_payload(Handler, Request, #sheep_response{body = Body, headers = Headers}
                     body = Fn(Body)
                 }
             catch
-                Class:Reason ->
-                    ST = erlang:get_stacktrace(),
+                ?EXCEPTION(Class, Reason, Stacktrace) ->
                     error_logger:info_report([
                         {error, encode_payload},
                         {payload, Body},
                         {description, "can't encode payload"},
                         {exception, {Class,Reason}},
-                        {stacktrace, ST}
+                        {stacktrace, ?GET_STACK(Stacktrace)}
                     ]),
                     E = <<"Can't encode '", AcceptContentType/binary, "' payload">>,
                     handle_internal_error(
@@ -232,22 +240,21 @@ handle_exception(Handler, Request, Class, Reason) ->
             try
                 Handler:exception_handler(Request, Class, Reason)
             catch
-                Class1:Reason1 ->
-                    ST1 = erlang:get_stacktrace(),
+                ?EXCEPTION(Class1, Reason1, Stacktrace1) ->
                     error_logger:error_report([
                         {error, invalid_exception_handler},
                         {handler, Handler},
                         {exception, {Class1, Reason1}},
-                        {stacktrace, ST1}
+                        {stacktrace, ?GET_STACK(Stacktrace1)}
                     ]),
                     sheep_response:new_500()
             end;
         false ->
-            ST2 = erlang:get_stacktrace(),
+            Stacktrace2 = erlang:process_info(self(), current_stacktrace),
             error_logger:error_report([
                 {handler, Handler},
                 {exception, {Class, Reason}},
-                {stacktrace, ST2}
+                {stacktrace, Stacktrace2}
             ]),
             sheep_response:new_500()
     end.
@@ -259,13 +266,12 @@ handle_internal_error(Handler, Request, Reason, Default) ->
             try
                 Handler:exception_handler(Request, sheep_internal_error, Reason)
             catch
-                Class1:Reason1 ->
-                    ST1 = erlang:get_stacktrace(),
+                ?EXCEPTION(Class1, Reason1, Stacktrace1) ->
                     error_logger:error_report([
                         {error, invalid_exception_handler},
                         {handler, Handler},
                         {exception, {Class1, Reason1}},
-                        {stacktrace, ST1}
+                        {stacktrace, ?GET_STACK(Stacktrace1)}
                     ]),
                     Default
             end;
