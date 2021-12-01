@@ -20,6 +20,7 @@
 -spec all() -> [atom()].
 all() ->
     [
+        ping_test,
         get_test,
         post_put_delete_test,
         pipeline_test,
@@ -42,6 +43,7 @@ init_per_suite(Config) ->
 
     Routing = cowboy_router:compile([
         {"localhost", [
+            {"/ping", ping_handler, []},
             {"/simple[/:param]", simple_handler, []},
             {"/pipeline/users[/:user_id]", pipeline_handler, []},
             {"/status/users[/:user_id]", status_samples_handler, []},
@@ -55,8 +57,7 @@ init_per_suite(Config) ->
         ]}
     ]),
 
-    %% {ok, _} = cowboy:start_clear(sheep_test_server, [{port, 0}],
-    Res = cowboy:start_clear(sheep_test_server, [{port, 0}],
+    {ok, _} = cowboy:start_clear(sheep_test_server, [{port, 0}],
         #{
             env => #{dispatch => Routing},
             max_keepalive => 50,
@@ -72,6 +73,12 @@ end_per_suite(_Config) ->
 
 
 %%% Tests
+
+-spec ping_test(list()) -> ok.
+ping_test(_Config) ->
+    {200, _, <<"pong">>} = query("/ping"),
+    ok.
+
 
 -spec get_test(list()) -> ok.
 get_test(_Config) ->

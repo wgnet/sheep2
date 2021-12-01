@@ -9,7 +9,7 @@
 -include("sheep.hrl").
 
 -record(state, {steps = [], user_id}).
--type state() :: state{}.
+-type state() :: #state{}.
 
 
 -spec init(cowboy_req:req(), term()) -> tuple().
@@ -36,7 +36,7 @@ sheep_init(_Request, _Opts) ->
                 ]
             }
         },
-    State = state(),
+    State = #state{},
     {Options, State}.
 
 
