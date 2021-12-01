@@ -10,7 +10,7 @@ init(Req, Opts) ->
     {sheep_http, Req, Opts}.
 
 
--spec sheep_init(#sheep_request{}, term()) -> {#sheep_response{}, term()}.
+-spec sheep_init(sheep_request(), term()) -> {sheep_response(), term()}.
 sheep_init(_Request, _Opts) ->
     Options =
         #sheep_options{
@@ -34,7 +34,7 @@ sheep_init(_Request, _Opts) ->
     {Options, State}.
 
 
--spec read(#sheep_request{}, term()) -> #sheep_response{}.
+-spec read(sheep_request(), term()) -> sheep_response().
 read(#sheep_request{bindings = #{<<"kind">> := <<"empty">>}} = _Request, _State) ->
     #sheep_response{status_code = 204};
 

@@ -41,7 +41,7 @@ query(Method, Path, Headers, Data) ->
     {Status, RHeaders, Body}.
 
 
--spec log({cowboy_req:req(), #sheep_request{}, #sheep_response{}}) -> ok.
+-spec log({cowboy_req:req(), sheep_request(), sheep_response()}) -> ok.
 log({Req, Request, Response}) ->
     {RAddr, _RPort} = cowboy_req:peer(Req),
     RemoteAddr = inet:ntoa(RAddr),
@@ -63,7 +63,7 @@ init(Req, Opts) ->
     {sheep_http, Req, Opts}.
 
 
--spec read(#sheep_request{}, term()) -> #sheep_response{}.
+-spec read(sheep_request(), term()) -> sheep_response().
 read(_Request, _State)->
     Body = #{<<"answer">> => 42},
     #sheep_response{status_code = 200, body = Body}.

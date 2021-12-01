@@ -37,8 +37,8 @@ all() ->
 
 -spec init_per_suite(list()) -> list().
 init_per_suite(Config) ->
-    application:ensure_all_started(cowboy),
-    application:ensure_all_started(hackney),
+    {ok, _} = application:ensure_all_started(cowboy),
+    {ok, _} = application:ensure_all_started(hackney),
 
     Routing = cowboy_router:compile([
         {"localhost", [
@@ -55,7 +55,8 @@ init_per_suite(Config) ->
         ]}
     ]),
 
-    {ok, _} = cowboy:start_clear(sheep_test_server, [{port, 0}],
+    %% {ok, _} = cowboy:start_clear(sheep_test_server, [{port, 0}],
+    Res = cowboy:start_clear(sheep_test_server, [{port, 0}],
         #{
             env => #{dispatch => Routing},
             max_keepalive => 50,

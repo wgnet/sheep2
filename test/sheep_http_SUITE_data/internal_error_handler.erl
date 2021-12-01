@@ -10,7 +10,7 @@ init(Req, Opts) ->
     {sheep_http, Req, Opts}.
 
 
--spec create(#sheep_request{}, term()) -> #sheep_response{}.
+-spec create(sheep_request(), term()) -> sheep_response().
 create(#sheep_request{bindings = #{<<"type">> := <<"response_encode_error">>}}, _State)->
     Body = #{<<"error">> => self()},
     #sheep_response{status_code = 200, body = Body};
@@ -18,7 +18,7 @@ create(_, _) ->
     #sheep_response{status_code = 200, body = #{}}.
 
 
--spec exception_handler(#sheep_request{}, atom(), term()) -> #sheep_response{}.
+-spec exception_handler(sheep_request(), atom(), term()) -> sheep_response().
 exception_handler(_Request, sheep_internal_error, Details) ->
     {Code, Body} = handle_internal_error(Details),
     #sheep_response{status_code = Code, body = jiffy:encode(Body)}.

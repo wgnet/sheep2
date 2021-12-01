@@ -10,7 +10,7 @@ init(Req, Opts) ->
     {sheep_http, Req, Opts}.
 
 
--spec sheep_init(#sheep_request{}, term()) -> {#sheep_options{}, term()}.
+-spec sheep_init(sheep_request(), term()) -> {sheep_options(), term()}.
 sheep_init(_Request, _Opts) ->
     throw(test_exception),
     {#sheep_options{}, []}.

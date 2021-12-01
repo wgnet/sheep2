@@ -5,15 +5,23 @@
 
 -include("sheep.hrl").
 
--callback sheep_init(Request :: #sheep_request{}, HandlerOpts :: term()) ->
-    {Options :: #sheep_options{}, State :: term()}.
--callback create(Request :: #sheep_request{}, State :: term()) -> Response :: #sheep_response{}.
--callback read(Request :: #sheep_request{}, State :: term()) -> Response :: #sheep_response{}.
--callback update(Request :: #sheep_request{}, State :: term()) -> Response :: #sheep_response{}.
--callback delete(Request :: #sheep_request{}, State :: term()) -> Response :: #sheep_response{}.
--callback exception_handler(Request :: #sheep_request{}, Class :: atom(), Reason :: term()) -> #sheep_response{}.
+-callback sheep_init(Request :: sheep_request(), HandlerOpts :: term()) ->
+    {Options :: sheep_options(), State :: term()}.
+-callback create(Request :: sheep_request(), State :: term()) ->
+    Response :: sheep_response().
+-callback read(Request :: sheep_request(), State :: term()) ->
+    Response :: sheep_response().
+-callback update(Request :: sheep_request(), State :: term()) ->
+    Response :: sheep_response().
+-callback delete(Request :: sheep_request(), State :: term()) ->
+    Response :: sheep_response().
+-callback exception_handler(
+    Request :: sheep_request(), Class :: atom(), Reason :: term()) ->
+    Response :: sheep_response().
 
--optional_callbacks([sheep_init/2, create/2, read/2, update/2, delete/2, exception_handler/3]).
+-optional_callbacks([
+    sheep_init/2, create/2, read/2, update/2, delete/2, exception_handler/3
+]).
 
 -define(MIME_JSON, <<"application/json">>).
 -define(MIME_MSGPACK, <<"application/x-msgpack">>).
@@ -32,10 +40,10 @@
 %%% Module API
 
 -spec upgrade(cowboy_req:req(), cowboy_middleware:env(), module(), any(), any())
-	-> {ok, Req, Env} when Req::cowboy_req:req(), Env::cowboy_middleware:env().
+    -> {ok, Req, Env} when Req::cowboy_req:req(), Env::cowboy_middleware:env().
 %% cowboy_rest takes no options.
 upgrade(Req, Env, Handler, _HandlerState, Opts) ->
-	upgrade(Req, Env, Handler, Opts).
+    upgrade(Req, Env, Handler, Opts).
 
 -spec upgrade(cowboy_req:req(), cowboy_middleware:env(), module(), term()) ->
                      {ok, cowboy_req:req(), cowboy_middleware:env()}.
@@ -85,19 +93,19 @@ upgrade(CowRequest0, Env, Handler, HandlerOpts) ->
     {ok, CowReply, Env}.
 
 
--spec get_header(binary(), #sheep_request{}) -> binary() | undefined.
+-spec get_header(binary(), sheep_request()) -> binary() | undefined.
 get_header(Name, Request) ->
     get_header(Name, Request, undefined).
 
--spec get_header(binary(), #sheep_request{}, binary() | undefined) -> binary() | undefined.
+-spec get_header(binary(), sheep_request(), binary() | undefined) -> binary() | undefined.
 get_header(Name, #sheep_request{headers = Headers}, Default) ->
     maps:get(Name, Headers, Default).
 
 
 %%% Inner functions
 
--spec decode_payload(module(), #sheep_request{}, #sheep_options{}) ->
-                            {ok, #sheep_request{}} | {error, #sheep_response{}}.
+-spec decode_payload(module(), sheep_request(), sheep_options()) ->
+                            {ok, sheep_request()} | {error, sheep_response()}.
 decode_payload(_, #sheep_request{body = <<>>} = Request, _Options) ->
     {ok, Request};
 decode_payload(Handler, #sheep_request{body = Body} = Request, Options) ->
@@ -115,7 +123,10 @@ decode_payload(Handler, #sheep_request{body = Body} = Request, Options) ->
             ]),
             {error, handle_internal_error(
                       Handler, Request, {unsupported_content_type, RawContentType},
-                      #sheep_response{status_code = 415, body = <<"Not supported 'content-type'">>})};
+                      #sheep_response{
+                         status_code = 415,
+                         body = <<"Not supported 'content-type'">>
+                        })};
         {ok, Fn} ->
             try
                 {ok, Request#sheep_request{body = Fn(Body)}}
@@ -125,24 +136,36 @@ decode_payload(Handler, #sheep_request{body = Body} = Request, Options) ->
                         {error, decode_payload},
                         {payload, Body},
                         {description, "can't decode payload"},
-                        {exception, {Class,Reason}},
+                        {exception, {Class, Reason}},
                         {stacktrace, ?GET_STACK(Stacktrace)}
                     ]),
                     E = <<"Can't decode '", RawContentType/binary, "' payload">>,
                     {error, handle_internal_error(
-                              Handler, Request, {request_decode_error, Class, Reason, RawContentType},
-                              #sheep_response{status_code = 400, body = E})}
+                              Handler, Request,
+                              {request_decode_error, Class, Reason, RawContentType},
+                              #sheep_response{status_code = 400, body = E}
+                             )}
             end
     end.
 
--spec encode_payload(module(), #sheep_request{}, #sheep_response{}, #sheep_options{}) -> #sheep_response{}.
-encode_payload(_Handler, _Request, #sheep_response{body = Body} = Response, _Options) when is_binary(Body) ->
+-spec encode_payload(module(), sheep_request(), sheep_response(), sheep_options()) ->
+    sheep_response().
+encode_payload(
+    _Handler, _Request,
+    #sheep_response{body = Body} = Response, _Options)
+    when is_binary(Body) ->
     Response;
-encode_payload(_Handler, _Request, #sheep_response{status_code = 204} = Response, _Options) ->
+encode_payload(
+    _Handler, _Request,
+    #sheep_response{status_code = 204} = Response, _Options) ->
     Response#sheep_response{body = <<>>};
-encode_payload(_Handler, _Request, #sheep_response{body = undefined} = Response, _Options) ->
+encode_payload(
+    _Handler, _Request,
+    #sheep_response{body = undefined} = Response, _Options) ->
     Response#sheep_response{body = <<>>};
-encode_payload(Handler, Request, #sheep_response{body = Body, headers = Headers} = Response, Options) ->
+encode_payload(
+    Handler, Request,
+    #sheep_response{body = Body, headers = Headers} = Response, Options) ->
     AcceptContentType =
         case get_header(<<"accept">>, Request) of
             undefined -> get_header(<<"content-type">>, Request);
@@ -177,7 +200,7 @@ encode_payload(Handler, Request, #sheep_response{body = Body, headers = Headers}
                         {error, encode_payload},
                         {payload, Body},
                         {description, "can't encode payload"},
-                        {exception, {Class,Reason}},
+                        {exception, {Class, Reason}},
                         {stacktrace, ?GET_STACK(Stacktrace)}
                     ]),
                     E = <<"Can't encode '", AcceptContentType/binary, "' payload">>,
@@ -188,18 +211,19 @@ encode_payload(Handler, Request, #sheep_response{body = Body, headers = Headers}
             end
     end.
 
--spec handle(#sheep_request{}, module(), #sheep_options{}, term()) -> #sheep_response{}.
+-spec handle(sheep_request(), module(), sheep_options(), term()) -> sheep_response().
 handle(#sheep_request{method = Method} = Request, HandlerModule, Options, State) ->
     MethodsSpec = method_spec(Options),
     case maps:find(Method, MethodsSpec) of
         {ok, Handlers} when is_list(Handlers) ->
             call_handlers(Handlers, Request, HandlerModule, State);
         error ->
-            handle_internal_error(HandlerModule, Request, method_not_allowed, sheep_response:new_405())
+            handle_internal_error(
+              HandlerModule, Request, method_not_allowed, sheep_response:new_405())
     end.
 
 
--spec call_handlers(list(), #sheep_request{}, atom(), term()) -> #sheep_response{}.
+-spec call_handlers(list(), sheep_request(), atom(), term()) -> sheep_response().
 call_handlers([], _Request, _Module, _State) ->
     sheep_response:new_204();
 
@@ -217,7 +241,7 @@ call_handlers([Handler | Handlers], Request, Module, State) ->
     end.
 
 
--spec call_fun(function(), list(), #sheep_request{}, atom(), term()) -> #sheep_response{}.
+-spec call_fun(function(), list(), sheep_request(), atom(), term()) -> sheep_response().
 call_fun(Fun, Handlers, Request, Module, State) ->
     case Fun(Request, State) of
         {continue, NewState} ->
@@ -228,7 +252,7 @@ call_fun(Fun, Handlers, Request, Module, State) ->
     end.
 
 
--spec handle_exception(atom(), #sheep_request{}, atom(), term()) -> #sheep_response{}.
+-spec handle_exception(atom(), sheep_request(), atom(), term()) -> sheep_response().
 handle_exception(Handler, Request, Class, Reason) ->
     case erlang:function_exported(Handler, exception_handler, 3) of
         true ->
@@ -275,7 +299,7 @@ handle_internal_error(Handler, Request, Reason, Default) ->
     end.
 
 
--spec decode_spec(#sheep_options{}) -> map().
+-spec decode_spec(sheep_options()) -> map().
 decode_spec(#sheep_options{decode_spec = Spec}) when is_map(Spec) -> Spec;
 decode_spec(#sheep_options{decode_spec = undefined}) ->
     #{
@@ -285,13 +309,14 @@ decode_spec(#sheep_options{decode_spec = undefined}) ->
         end,
         ?MIME_MSGPACK =>
         fun(Payload) ->
-            {ok, Data} = msgpack:unpack(Payload, [{map_format, map}, {unpack_str, as_binary}]),
+            {ok, Data} = msgpack:unpack(
+                           Payload, [{map_format, map}, {unpack_str, as_binary}]),
             Data
         end
     }.
 
 
--spec encode_spec(#sheep_options{}) -> map().
+-spec encode_spec(sheep_options()) -> map().
 encode_spec(#sheep_options{encode_spec = Spec}) when is_map(Spec) -> Spec;
 encode_spec(#sheep_options{encode_spec = undefined}) ->
     #{
@@ -306,7 +331,7 @@ encode_spec(#sheep_options{encode_spec = undefined}) ->
     }.
 
 
--spec method_spec(#sheep_options{}) -> map().
+-spec method_spec(sheep_options()) -> map().
 method_spec(#sheep_options{method_spec = Spec}) when is_map(Spec) -> Spec;
 method_spec(#sheep_options{method_spec = undefined}) ->
     #{
@@ -321,8 +346,8 @@ to_num(Bin) when is_binary(Bin) ->
     to_num(binary_to_list(Bin));
 to_num(Lst) when is_list(Lst) ->
     case string:to_float(Lst) of
-        {error,no_float} -> list_to_integer(Lst);
-        {F,_Rest} -> F
+        {error, no_float} -> list_to_integer(Lst);
+        {F, _Rest} -> F
     end;
 to_num(Int) when is_integer(Int) -> Int;
 to_num(Float) when is_float(Float) -> Float;
@@ -405,7 +430,7 @@ to_binary(V) when is_list(V) -> list_to_binary(V);
 to_binary(V) when is_binary(V) -> V.
 
 
--spec log_query(cowboy_req:req(), #sheep_request{}, #sheep_response{}) -> ok.
+-spec log_query(cowboy_req:req(), sheep_request(), sheep_response()) -> ok.
 log_query(CowRequest, Request, Response) ->
     case application:get_env(sheep2, log_callback) of
         {ok, Fun} when is_function(Fun) -> Fun({CowRequest, Request, Response});

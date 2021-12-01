@@ -11,13 +11,13 @@ init(Req, Opts) ->
     {sheep_http, Req, Opts}.
 
 
--spec exception_handler(#sheep_request{}, atom(), term()) -> #sheep_response{}.
+-spec exception_handler(sheep_request(), atom(), term()) -> sheep_response().
 exception_handler(_Request, throw, test_exception) ->
     Data = #{<<"error">> => <<"Test exception">>},
     #sheep_response{status_code = 400, body = Data}.
 
 
--spec read(#sheep_request{}, term()) -> #sheep_response{}.
+-spec read(sheep_request(), term()) -> sheep_response().
 read(#sheep_request{bindings = #{<<"user_id">> := <<"3">>}}, _State)->
     Body = #{<<"error">> => <<"simple_error">>},
     #sheep_response{status_code = 400, body = Body};

@@ -10,7 +10,7 @@ init(Req, Opts) ->
     {sheep_http, Req, Opts}.
 
 
--spec read(#sheep_request{}, term()) -> #sheep_response{}.
+-spec read(sheep_request(), term()) -> sheep_response().
 read(#sheep_request{bindings = #{<<"user_id">> := <<"1">>}}, _State) ->
     Body = #{<<"id">> => <<"1">>, <<"name">> => <<"Username 1">>},
     #sheep_response{status_code = 200, body = Body};
