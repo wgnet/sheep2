@@ -1,8 +1,7 @@
 -module(error_status_samples_handler).
 -behaviour(sheep_http).
 
--export([init/2, exception_handler/3, read/2
-]).
+-export([init/2, exception_handler/3, read/2]).
 
 -include("sheep.hrl").
 

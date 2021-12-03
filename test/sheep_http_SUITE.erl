@@ -26,6 +26,7 @@ all() ->
         pipeline_test,
         status_test,
         error_status_test,
+        error_with_stacktrace_test,
         encode_decode_test,
         invalid_handler_test,
         invalid_encode_decode_test,
@@ -48,6 +49,7 @@ init_per_suite(Config) ->
             {"/pipeline/users[/:user_id]", pipeline_handler, []},
             {"/status/users[/:user_id]", status_samples_handler, []},
             {"/e/status/users[/:user_id]", error_status_samples_handler, []},
+            {"/est/status/users[/:user_id]", error_with_stacktrace_handler, []},
             {"/encode_decode[/:kind]", encode_decode_handler, []},
             {"/invalid", invalid_handler, []},
             {"/invalid/init", invalid_init_handler, []},
@@ -167,6 +169,17 @@ error_status_test(_Config) ->
     #{<<"error">> := <<"Test exception">>} = jiffy:decode(Body5, [return_maps]),
 
     {500, _, <<"Internal server error">>} = query("/status/users/5"),
+    ok.
+
+
+-spec error_with_stacktrace_test(list()) -> ok.
+error_with_stacktrace_test(_Config) ->
+    {200, _, _} = query("/est/status/users"),
+    {500, _, Body5} = query("/est/status/users/5"),
+    #{
+      <<"error">> := <<"Test exception">>,
+      <<"stacktrace">> := _
+     } = jiffy:decode(Body5, [return_maps]),
     ok.
 
 

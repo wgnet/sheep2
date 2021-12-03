@@ -18,23 +18,18 @@
 -callback exception_handler(
     Request :: sheep_request(), Class :: atom(), Reason :: term()) ->
     Response :: sheep_response().
+-callback exception_handler(
+    Request :: sheep_request(), Class :: atom(), Reason :: term(),
+    Stacktrace :: erlang:stacktrace()) ->
+    Response :: sheep_response().
 
 -optional_callbacks([
-    sheep_init/2, create/2, read/2, update/2, delete/2, exception_handler/3
+    sheep_init/2, create/2, read/2, update/2, delete/2,
+    exception_handler/3, exception_handler/4
 ]).
 
 -define(MIME_JSON, <<"application/json">>).
 -define(MIME_MSGPACK, <<"application/x-msgpack">>).
-
-%% compatibility
--ifdef(OTP_RELEASE). %% this implies 21 or higher
-    -define(EXCEPTION(Class, Reason, Stacktrace), Class:Reason:Stacktrace).
-    -define(GET_STACK(Stacktrace), Stacktrace).
--else.
-    -define(EXCEPTION(Class, Reason, _), Class:Reason).
-    -define(GET_STACK(_), erlang:get_stacktrace()).
--endif.
-
 
 
 %%% Module API
@@ -78,8 +73,8 @@ upgrade(CowRequest0, Env, Handler, HandlerOpts) ->
                 {error, Response0} -> {Options0, Response0}
             end
         catch
-            Class:Reason ->
-                {#sheep_options{}, handle_exception(Handler, Request, Class, Reason)}
+            Class:Reason:Stacktrace ->
+                {#sheep_options{}, handle_exception(Handler, Request, Class, Reason, Stacktrace)}
         end,
     Response2 = encode_payload(Handler, Request, Response, Options),
     #sheep_response{
@@ -126,24 +121,26 @@ decode_payload(Handler, #sheep_request{body = Body} = Request, Options) ->
                       #sheep_response{
                          status_code = 415,
                          body = <<"Not supported 'content-type'">>
-                        })};
+                        },
+                      [])};
         {ok, Fn} ->
             try
                 {ok, Request#sheep_request{body = Fn(Body)}}
             catch
-                ?EXCEPTION(Class, Reason, Stacktrace)->
+                Class:Reason:Stacktrace ->
                     error_logger:info_report([
                         {error, decode_payload},
                         {payload, Body},
                         {description, "can't decode payload"},
                         {exception, {Class, Reason}},
-                        {stacktrace, ?GET_STACK(Stacktrace)}
+                        {stacktrace, Stacktrace}
                     ]),
                     E = <<"Can't decode '", RawContentType/binary, "' payload">>,
                     {error, handle_internal_error(
                               Handler, Request,
                               {request_decode_error, Class, Reason, RawContentType},
-                              #sheep_response{status_code = 400, body = E}
+                              #sheep_response{status_code = 400, body = E},
+                              Stacktrace
                              )}
             end
     end.
@@ -185,7 +182,8 @@ encode_payload(
             ]),
             handle_internal_error(
                 Handler, Request, {unsupported_accept, AcceptContentType},
-                sheep_response:new_406()
+                sheep_response:new_406(),
+                []
             );
         [{AcceptContentTypeChoosen, Fn} | _] ->
             try
@@ -195,18 +193,19 @@ encode_payload(
                     body = Fn(Body)
                 }
             catch
-                ?EXCEPTION(Class, Reason, Stacktrace) ->
+                Class:Reason:Stacktrace ->
                     error_logger:info_report([
                         {error, encode_payload},
                         {payload, Body},
                         {description, "can't encode payload"},
                         {exception, {Class, Reason}},
-                        {stacktrace, ?GET_STACK(Stacktrace)}
+                        {stacktrace, Stacktrace}
                     ]),
                     E = <<"Can't encode '", AcceptContentType/binary, "' payload">>,
                     handle_internal_error(
                         Handler, Request, {response_encode_error, Class, Reason, AcceptContentType},
-                        #sheep_response{status_code = 500, body = E}
+                        #sheep_response{status_code = 500, body = E},
+                        Stacktrace
                     )
             end
     end.
@@ -219,7 +218,7 @@ handle(#sheep_request{method = Method} = Request, HandlerModule, Options, State)
             call_handlers(Handlers, Request, HandlerModule, State);
         error ->
             handle_internal_error(
-              HandlerModule, Request, method_not_allowed, sheep_response:new_405())
+              HandlerModule, Request, method_not_allowed, sheep_response:new_405(), [])
     end.
 
 
@@ -236,7 +235,7 @@ call_handlers([Handler | Handlers], Request, Module, State) ->
                 _ ->
                     handle_internal_error(
                       Module, Request, {handler_callback_missing, Module, Handler},
-                      sheep_response:new_501())
+                      sheep_response:new_501(), [])
             end
     end.
 
@@ -252,50 +251,51 @@ call_fun(Fun, Handlers, Request, Module, State) ->
     end.
 
 
--spec handle_exception(atom(), sheep_request(), atom(), term()) -> sheep_response().
-handle_exception(Handler, Request, Class, Reason) ->
-    case erlang:function_exported(Handler, exception_handler, 3) of
+-spec handle_exception(
+    atom(), sheep_request(), atom(), term(), erlang:stacktrace()) -> sheep_response().
+handle_exception(Handler, Request, Class, Reason, Stacktrace) ->
+    IsHandler3 = erlang:function_exported(Handler, exception_handler, 3),
+    IsHandler4 = erlang:function_exported(Handler, exception_handler, 4),
+    if
+        IsHandler3 ->
+            call_exception_handler_callback(Handler, [Request, Class, Reason]);
+        IsHandler4 ->
+            call_exception_handler_callback(Handler, [Request, Class, Reason, Stacktrace]);
         true ->
-            try
-                Handler:exception_handler(Request, Class, Reason)
-            catch
-                ?EXCEPTION(Class1, Reason1, Stacktrace1) ->
-                    error_logger:error_report([
-                        {error, invalid_exception_handler},
-                        {handler, Handler},
-                        {exception, {Class1, Reason1}},
-                        {stacktrace, ?GET_STACK(Stacktrace1)}
-                    ]),
-                    sheep_response:new_500()
-            end;
-        false ->
-            Stacktrace2 = erlang:process_info(self(), current_stacktrace),
             error_logger:error_report([
                 {handler, Handler},
                 {exception, {Class, Reason}},
-                {stacktrace, Stacktrace2}
+                {stacktrace, Stacktrace}
             ]),
             sheep_response:new_500()
     end.
 
+%% TODO spec
+handle_internal_error(Handler, Request, Reason, Default, Stacktrace) ->
+    IsHandler3 = erlang:function_exported(Handler, exception_handler, 3),
+    IsHandler4 = erlang:function_exported(Handler, exception_handler, 4),
+    Class = sheep_internal_error,
+    if
+        IsHandler3 ->
+            call_exception_handler_callback(Handler, [Request, Class, Reason]);
+        IsHandler4 ->
+            call_exception_handler_callback(Handler, [Request, Class, Reason, Stacktrace]);
+        true -> Default
+    end.
 
-handle_internal_error(Handler, Request, Reason, Default) ->
-    case erlang:function_exported(Handler, exception_handler, 3) of
-        true ->
-            try
-                Handler:exception_handler(Request, sheep_internal_error, Reason)
-            catch
-                ?EXCEPTION(Class1, Reason1, Stacktrace1) ->
-                    error_logger:error_report([
-                        {error, invalid_exception_handler},
-                        {handler, Handler},
-                        {exception, {Class1, Reason1}},
-                        {stacktrace, ?GET_STACK(Stacktrace1)}
-                    ]),
-                    Default
-            end;
-        false ->
-            Default
+%% TODO spec
+call_exception_handler_callback(Handler, Args) ->
+    try
+        apply(Handler, exception_handler, Args)
+    catch
+        Class:Reason:Stacktrace ->
+            error_logger:error_report([
+                {error, invalid_exception_handler},
+                {handler, Handler},
+                {exception, {Class, Reason}},
+                {stacktrace, Stacktrace}
+            ]),
+            sheep_response:new_500()
     end.
 
 
