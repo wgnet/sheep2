@@ -85,10 +85,14 @@ ping_test(_Config) ->
 -spec get_test(list()) -> ok.
 get_test(_Config) ->
     {200, _, Body1} = query("/simple"),
-    #{<<"reply_from">> := <<"read">>} = jiffy:decode(Body1, [return_maps]),
+    #{
+        <<"path">> := <<"/simple">>,
+        <<"reply_from">> := <<"read">>
+    } = jiffy:decode(Body1, [return_maps]),
 
     {200, _, Body2} = query("/simple?page=25&order=asc"),
     #{
+        <<"path">> := <<"/simple">>,
         <<"got_page">> := <<"25">>,
         <<"got_order">> := <<"asc">>
     } = jiffy:decode(Body2, [return_maps]),

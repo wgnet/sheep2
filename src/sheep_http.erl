@@ -44,6 +44,7 @@ upgrade(Req, Env, Handler, _HandlerState, Opts) ->
                      {ok, cowboy_req:req(), cowboy_middleware:env()}.
 upgrade(CowRequest0, Env, Handler, HandlerOpts) ->
     Method = cowboy_req:method(CowRequest0),
+    Path = cowboy_req:path(CowRequest0),
     Headers = cowboy_req:headers(CowRequest0),
     Bindings = cowboy_req:bindings(CowRequest0),
     Query = cowboy_req:parse_qs(CowRequest0),
@@ -52,6 +53,7 @@ upgrade(CowRequest0, Env, Handler, HandlerOpts) ->
 
     Request = #sheep_request{
         method = Method,
+        path = Path,
         headers = Headers,                               %{binary() => binary()}
         bindings = plist_to_map(maps:to_list(Bindings)), %{binary() => binary()}
         query = plist_to_map(Query),                     %{binary() => binary()}

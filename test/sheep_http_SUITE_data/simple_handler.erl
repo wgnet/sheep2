@@ -11,12 +11,19 @@ init(Req, Opts) ->
 
 
 -spec read(sheep_request(), term()) -> sheep_response().
-read(#sheep_request{query = #{<<"page">> := Page, <<"order">> := Order}}, _State) ->
-    Body = #{<<"got_page">> => Page, <<"got_order">> => Order},
+read(#sheep_request{query = #{<<"page">> := Page, <<"order">> := Order}, path = Path}, _State) ->
+    Body = #{
+        <<"path">> => Path,
+        <<"got_page">> => Page,
+        <<"got_order">> => Order
+    },
     #sheep_response{status_code = 200, body = Body};
 
-read(_Request, _State)->
-    Body = #{<<"reply_from">> => <<"read">>},
+read(#sheep_request{path = Path}, _State)->
+    Body = #{
+        <<"path">> => Path,
+        <<"reply_from">> => <<"read">>
+    },
     #sheep_response{status_code = 200, body = Body}.
 
 

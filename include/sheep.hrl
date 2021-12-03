@@ -1,7 +1,8 @@
 -type http_code() :: integer().
 
 -record(sheep_request, {
-    method:: binary(),
+    method :: binary(),
+    path :: binary(),
     headers = #{} :: maps:map(),
     query = #{} :: maps:map(),
     bindings = #{} :: maps:map(),
