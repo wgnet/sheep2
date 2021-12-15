@@ -1,6 +1,6 @@
 {application, sheep2, [
     {description, "Cowboy protocol and set of utility funs for building JSON/MsgPack APIs"},
-    {vsn, "4.3.0"},
+    {vsn, git},
     {registered, []},
     {applications, [
         kernel,
@@ -9,6 +9,7 @@
         jiffy,
         msgpack
     ]},
+    {licenses, ["MIT"]},
     {env, [
         {log_callback, undefined}
     ]}
