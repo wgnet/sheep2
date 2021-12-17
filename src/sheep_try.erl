@@ -1,10 +1,21 @@
 -module(sheep_try).
 
--export([run/0, query/4, log/1]).
+-export([run/0, log/1]).
 -export([init/2, read/2]).
+-export([query/1, query/2, query/3, query/4]).
 
 -include("sheep.hrl").
 
+-ifdef(TEST).
+-define(PORT, ranch:get_port(sheep_test_server)). %% See sheep_http_SUITE.erl
+-else.
+-define(PORT, ranch:get_port(?MODULE)).
+-endif.
+
+-define(HEADERS, [
+    {<<"content-type">>, <<"application/json">>},
+    {<<"accept">>, <<"application/json">>}
+]).
 
 -spec run() -> {integer(), list(), binary()}.
 run() ->
@@ -31,11 +42,21 @@ run() ->
     ],
     query(get, "/hello", H, <<>>).
 
+-spec query(string()) -> {http_code(), list(), binary()}.
+query(Path) ->
+    query(get, Path).
+
+-spec query(atom(), string()) -> {http_code(), list(), binary()}.
+query(Method, Path) ->
+    query(Method, Path, ?HEADERS).
+
+-spec query(atom(), string(), list()) -> {http_code(), list(), binary()}.
+query(Method, Path, Headers) ->
+    query(Method, Path, Headers, <<>>).
 
 -spec query(atom(), string(), list(), binary()) -> {integer(), list(), binary()}.
 query(Method, Path, Headers, Data) ->
-    Port = ranch:get_port(?MODULE),
-    {ok, Pid} = gun:open("localhost", Port),
+    {ok, Pid} = gun:open("localhost", ?PORT),
     {ok, http} = gun:await_up(Pid),
     StreamRef = gun:request(Pid, method(Method), Path, Headers, Data),
     Opts = #{
@@ -79,7 +100,6 @@ log({Req, Request, Response}) ->
     io:format(" Sheep request: ~p~n", [Request]),
     io:format(" Sheep response: ~p~n", [Response]),
     ok.
-
 
 %% Sheep handler
 
