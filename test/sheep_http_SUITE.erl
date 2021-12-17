@@ -40,7 +40,7 @@ all() ->
 -spec init_per_suite(list()) -> list().
 init_per_suite(Config) ->
     {ok, _} = application:ensure_all_started(cowboy),
-    {ok, _} = application:ensure_all_started(hackney),
+    {ok, _} = application:ensure_all_started(gun),
 
     Routing = cowboy_router:compile([
         {"localhost", [
@@ -318,8 +318,34 @@ query(Method, Path, Headers) ->
 
 -spec query(atom(), string(), list(), binary()) -> {http_code(), list(), binary()}.
 query(Method, Path, Headers, Data) ->
-    Port = integer_to_list(ranch:get_port(sheep_test_server)),
-    FullURL = "http://localhost:" ++ Port ++ Path,
-    {ok, Status, RHeaders, Ref} = hackney:request(Method, FullURL, Headers, Data),
-    {ok, Body} = hackney:body(Ref),
+    Port = ranch:get_port(sheep_test_server),
+    {ok, Pid} = gun:open("localhost", Port),
+    {ok, http} = gun:await_up(Pid),
+    StreamRef = gun:request(Pid, method(Method), Path, Headers, Data),
+    Opts = #{
+        pid => Pid,
+        stream_ref => StreamRef,
+        acc => <<>>
+    },
+    #{status := Status, headers := RHeaders, acc := Body} = get_reponse(Opts),
     {Status, RHeaders, Body}.
+
+-spec method(atom()) -> binary().
+method(Method) ->
+    cowboy_bstr:to_upper(erlang:list_to_binary(erlang:atom_to_list(Method))).
+
+get_reponse(#{pid := Pid, stream_ref := StreamRef, acc := Acc} = Opts) ->
+    case gun:await(Pid, StreamRef) of
+        {response, fin, Status, Headers} ->
+            Opts#{status => Status, headers => Headers};
+        {response, nofin, Status, Headers} ->
+            get_reponse(Opts#{status => Status, headers => Headers});
+        {data, nofin, Data} ->
+            get_reponse(Opts#{acc => <<Acc/binary, Data/binary>>});
+        {data, fin, Data} ->
+            Opts#{acc := <<Acc/binary, Data/binary>>};
+        {error, timeout} = Response ->
+            Response;
+        {error, _Reason} = Response->
+            Response
+    end.
