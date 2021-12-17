@@ -1,4 +1,6 @@
 # Sheep
+[![Build Status][gh badge]][gh]
+[![Erlang Versions][erlang version badge]][gh]
 
 Cowboy protocol and set of utility funs for building JSON/MsgPack APIs
 
@@ -120,3 +122,8 @@ then **GET** and **POST** requests will be processed by list of functions
 but **PUT** or **DELETE** will get 204 (no content) response.
 
 See [pipeline_handler.erl](./test/sheep_http_SUITE_data/pipeline_handler.erl) as example.
+
+<!-- Badges -->
+[gh]: https://github.com/wgnet/sheep2/actions/workflows/ci.yml
+[gh badge]: https://img.shields.io/github/workflow/status/wgnet/sheep2/CI?style=flat-square
+[erlang version badge]: https://img.shields.io/badge/erlang-21.3%20to%2024.2-blue.svg?style=flat-square
