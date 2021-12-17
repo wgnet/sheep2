@@ -200,7 +200,8 @@ encode_decode_test(_Config) ->
     } = jiffy:decode(Body, [return_maps]),
 
     MData = msgpack:pack(Data),
-    {415, _, <<"Not supported 'content-type'">>} = sheep_try:query(get, "/encode_decode", ?M_HEADERS, MData),
+    {415, _, <<"Not supported 'content-type'">>} =
+      sheep_try:query(get, "/encode_decode", ?M_HEADERS, MData),
 
     {204, _, _} = sheep_try:query("/encode_decode/empty"),
     {404, _, _} = sheep_try:query("/encode_decode/empty_404"),
@@ -213,7 +214,8 @@ invalid_handler_test(_Config) ->
     Path = "/invalid",
     {204, _, <<>>} = sheep_try:query(get, Path), % empty list of callbacks
     {405, _, <<"Method not allowed">>} = sheep_try:query(put, Path), % no callbacks in methods_spec
-    {501, _, <<"Not implemented">>} = sheep_try:query(post, Path), % callback in list but not exported
+    {501, _, <<"Not implemented">>} =
+        sheep_try:query(post, Path), % callback in list but not exported
 
     {500, _, <<"Internal server error">>} = sheep_try:query("/invalid/init"),
     {400, _, Body1} = sheep_try:query("/invalid/init/2"),
